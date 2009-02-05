@@ -83,7 +83,11 @@ schema = FormAdapterSchema.copy() + Schema((
              },
              i18n_domain = "getpaid.formgen",
              ),
-        )
+        ),
+    StringField('GPMakePaymentButton',
+                default='Make Payment',
+                mutator='setGPSubmit',)
+    
 ))
 
 
@@ -313,6 +317,13 @@ class GetpaidPFGAdapter( FormActionAdapter ):
         """
         if template:
             getattr(self,self.available_templates[template])()
+
+    def setGPSubmit(self, submit_legend):
+        """
+        This will call the initialization methods for each template
+        """
+        if submit_legend:
+            self.setSubmitLabel(submit_legend)
         
     security.declareProtected(ModifyPortalContent, 'generateFormFieldRows')
     def generateFormFieldRows(self):
