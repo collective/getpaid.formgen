@@ -60,15 +60,13 @@ schema = FormAdapterSchema.copy() + Schema((
                        ),
                 vocabulary='getAvailableGetPaidForms'
                 ),
-                
-    DataGridField('payablesMap',
+    DataGridField('GPPayablesMap',
          searchable=False,
          required=True,
-         schemata='payables mapping',
          columns=('field_path', 'form_field', 'payable_path'),
          fixed_rows = "generateFormFieldRows",
-         allow_delete = True,
-         allow_insert = True,
+         allow_delete = False,
+         allow_insert = False,
          allow_reorder = False,
          widget = DataGridWidget(
              label='Form fields to Payables mapping',
@@ -95,6 +93,7 @@ schema = FormAdapterSchema.copy() + Schema((
     
 ))
 
+finalizeATCTSchema(schema, folderish=False, moveDiscussion=False)
 
 class BillingInfo( getpaid.core.options.PropertyBag ):
     title = "Billing Information"
@@ -119,7 +118,6 @@ def order_fields(x,y):
         return 0
 
 
-
 def getAvailableCreditCards(self):
     """
     We need the vocabulary for the credit cards in a form that can be understood by pfg
@@ -134,12 +132,23 @@ def getAvailableCreditCards(self):
     return tuple(available_cards)
     
 
-class GetpaidPFGAdapter( FormActionAdapter ):
+class DebugFieldProperty(atapi.ATFieldProperty):
+    def __get__(self, inst, klass):
+        import pdb; pdb.set_trace()
+        return super(DebugFieldProperty, self).__get__(inst, klass)
+
+class GetpaidPFGAdapter(FormActionAdapter):
     """
     Do PloneGetPaid stuff upon PFG submit.
     """
     schema = schema
     security = ClassSecurityInfo()
+
+    fieldsetType = atapi.ATFieldProperty('GPFieldsetType')    
+    # payablesMap always throws AttributeError for some reason, but the
+    # other two work.
+    payablesMap = atapi.ATFieldProperty('GPPayablesMap')
+    makePaymentButton = atapi.ATFieldProperty('GPMakePaymentButton')
     
     portal_type = 'GetpaidPFGAdapter'
     archetype_name = 'Getpaid Adapter'
@@ -202,12 +211,13 @@ class GetpaidPFGAdapter( FormActionAdapter ):
         },30]
         
                        }
+
     
-    def initializeArchetype(self, **kwargs):
-        """Initialize Private instance variables
-        """
-        FormActionAdapter.initializeArchetype(self, **kwargs)
-        self._fieldsForGPType = {}
+    # def initializeArchetype(self, **kwargs):
+    #     """Initialize Private instance variables
+    #     """
+    #     FormActionAdapter.initializeArchetype(self, **kwargs)
+    #     self._fieldsForGPType = {}
 
     def getSchemaAdapters(self):
         adapters = {}
@@ -236,7 +246,7 @@ class GetpaidPFGAdapter( FormActionAdapter ):
         shopping_cart = component.getUtility(GPInterfaces.IShoppingCartUtility).get(portal, key="oneshot:bogus")
         
         portal_catalog = getToolByName(self, 'portal_catalog')
-        form_payable = dict((p['field_path'], p['payable_path']) for p in self.payablesMap if p['payable_path'])
+        form_payable = dict((p['field_path'], p['payable_path']) for p in self.GPPayablesMap if p['payable_path'])
         parent_node = self.getParentNode()
         has_products = 0
         error_fields = {}
@@ -280,8 +290,6 @@ class GetpaidPFGAdapter( FormActionAdapter ):
         else:
             REQUEST.response.redirect(self.getNextURL(checkout_process.order, portal))
             
-        
-        
     def getNextURL(self, order, context):
         state = order.finance_state
         f_states = GPInterfaces.workflow_states.order.finance
@@ -350,7 +358,7 @@ class GetpaidPFGAdapter( FormActionAdapter ):
         scu = zope.component.getUtility(getpaid.core.interfaces.IShoppingCartUtility)
         cart = scu.get(self, create=True)
         portal_catalog = getToolByName(self, 'portal_catalog')
-        form_payable = dict((p['field_path'], p['payable_path']) for p in self.payablesMap if p['payable_path'])
+        form_payable = dict((p['field_path'], p['payable_path']) for p in self.GPPayablesMap if p['payable_path'])
         parent_node = self.getParentNode()
         for field in fields:
             if field.getId() in form_payable:
@@ -377,9 +385,9 @@ class GetpaidPFGAdapter( FormActionAdapter ):
         """
         This will call the initialization methods for each template
         """
-        self.setGPFieldsetType(template)
+        self.fieldsetType = template
         if template:
-            self.setGPFieldsetType(template)
+            self.fieldsetType = template
             getattr(self,self.available_templates[template])()
 
     def setGPSubmit(self, submit_legend):
@@ -387,7 +395,7 @@ class GetpaidPFGAdapter( FormActionAdapter ):
         This will call the initialization methods for each template
         """
         if submit_legend:
-            self.setGPMakePaymentButton(submit_legend)
+            self.makePaymentButton = submit_legend
             self.setSubmitLabel(submit_legend)
 
     def updateFieldsData(self, fieldData):
@@ -487,6 +495,5 @@ class GetpaidPFGAdapter( FormActionAdapter ):
         return result
         # return {'name_on_card':'Invalid Name'}
     
-
-registerATCT(GetpaidPFGAdapter, PROJECTNAME)
+atapi.registerType(GetpaidPFGAdapter, PROJECTNAME)
 
