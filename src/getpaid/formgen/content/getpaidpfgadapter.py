@@ -19,7 +19,7 @@ import zope.component
 from AccessControl import getSecurityManager
 from Products.Archetypes import atapi
 from Products.Archetypes.public import StringField, SelectionWidget, \
-    DisplayList, Schema, ManagedSchema
+    DisplayList, Schema, ManagedSchema, StringWidget
 from Products.ATContentTypes.content.schemata import finalizeATCTSchema
 from Products.ATContentTypes.content.base import registerATCT
 from Products.CMFCore.permissions import View, ModifyPortalContent
@@ -86,7 +86,12 @@ schema = FormAdapterSchema.copy() + Schema((
         ),
     StringField('GPMakePaymentButton',
                 default='Make Payment',
-                mutator='setGPSubmit',)
+                mutator='setGPSubmit',
+                widget=StringWidget(
+                       label=u'Get Paid Payment Button Label',
+                       i18n_domain = "getpaidpfgadapter",
+                       label_msgid = "label_getpaid_button_label",
+                       ))
     
 ))
 
@@ -300,21 +305,24 @@ class GetpaidPFGAdapter( FormActionAdapter ):
         We add all the required fields for getpaid checkout
         TODO: Find a way to get ordered fields
         """
-        oids = self.objectIds()
+        oids = self.keys()
         ordered_keys = [(afieldset,self.checkout_fields[afieldset][1]) for afieldset in self.checkout_fields.keys()]
         ordered_keys.sort(order_fields)
         ordered_keys = [ordered_key[0] for ordered_key in ordered_keys] # just lazyness to refactor the rest of the method
         
         for frameset in ordered_keys:
+            if frameset in oids:
+                return
             self.invokeFactory('FieldsetFolder',frameset)
             frame_folder = self[frameset]
             frame_folder.setTitle(frameset)
             ordered_fields = [(fld,self.checkout_fields[frameset][0][fld][2]) for fld in self.checkout_fields[frameset][0].keys()]
             ordered_fields.sort(order_fields)
             ordered_fields = [ordered_key[0] for ordered_key in ordered_fields]
+            fs_oids = frame_folder.keys()
             
             for field in ordered_fields:
-                if field not in oids:
+                if not field in fs_oids:
                     aField = self.checkout_fields[frameset][0][field]
                     frame_folder.invokeFactory(aField[0],field)
                     obj = frame_folder[field]
@@ -369,7 +377,9 @@ class GetpaidPFGAdapter( FormActionAdapter ):
         """
         This will call the initialization methods for each template
         """
+        self.setGPFieldsetType(template)
         if template:
+            self.setGPFieldsetType(template)
             getattr(self,self.available_templates[template])()
 
     def setGPSubmit(self, submit_legend):
@@ -377,6 +387,7 @@ class GetpaidPFGAdapter( FormActionAdapter ):
         This will call the initialization methods for each template
         """
         if submit_legend:
+            self.setGPMakePaymentButton(submit_legend)
             self.setSubmitLabel(submit_legend)
 
     def updateFieldsData(self, fieldData):
