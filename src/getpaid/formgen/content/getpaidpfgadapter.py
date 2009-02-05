@@ -164,7 +164,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
         'bill_postal_code':['FormStringField',{'title':u"Zip/Postal Code",
                                                'required':True},13],
         'bill_country':['FormStringField',{'title':u"Country Code",
-                                           'description':'Your Conutry ISO code',
+                                           'description':'Your Country ISO code',
                                                'required':True},14],
         'bill_state':['FormStringField',{'title':u"State Code",
                                          'description':'Your State ISO code',
