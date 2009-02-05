@@ -29,3 +29,13 @@ After hitting install you are done, now whenever you create a FormGen folder
 you will have as available content types a "GetPaid Adapter" which creates the
 required folders for a GetPaid checkout and allows you to map any GetPaid
 product on the site to a field on your form.
+
+A few remarks:
+------
+  * If you are using other adapters (such as salesforce one) please make sure to
+    edit and save (even without changes) this one last, because it adds a clause
+    to all other present adapters so they execute after it, this avoids comitting
+    data of an order that can be rejected.
+  * Make sure to remove the default mail adapter from the FormgenForm or you
+    could end up sending sensible data by mail by accident.
+
