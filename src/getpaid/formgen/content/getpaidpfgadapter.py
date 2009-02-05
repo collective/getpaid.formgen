@@ -120,7 +120,6 @@ def order_fields(x,y):
         return 0
 
 
-
 def getAvailableCreditCards(self):
     """
     We need the vocabulary for the credit cards in a form that can be understood by pfg
@@ -158,13 +157,6 @@ class GetpaidPFGAdapter(FormActionAdapter):
                            'Multi item cart add': '_multi_item_cart_add_init' }
 
     success_callback = None
-
-##     bill_country = schema.Choice( title = _(u"Country"),
-##                                     vocabulary = "getpaid.countries")
-##     bill_state = schema.Choice( title = _(u"State"),
-##                                   vocabulary="getpaid.states" )
-    ###################################################################
-
     
     checkout_fields = {'User Data':[{
                        
@@ -213,103 +205,12 @@ class GetpaidPFGAdapter(FormActionAdapter):
                        }
 
     
-    # def initializeArchetype(self, **kwargs):
-    #     """Initialize Private instance variables
-    #     """
-    #     FormActionAdapter.initializeArchetype(self, **kwargs)
-    #     self._fieldsForGPType = {}
 
-    def getSchemaAdapters(self):
-        adapters = {}
-        portal = zapi.getSiteManager()
-        portal = getToolByName(portal,'portal_url').getPortalObject()
-        user = getSecurityManager().getUser()
-        formSchemas = component.getUtility(GPInterfaces.IFormSchemas)
-        #persistent sections
-        for section in ('contact_information', 'billing_address', 'shipping_address'):
-            interface = formSchemas.getInterface(section)
-            adapter = component.queryAdapter(user,interface)
-            if adapter is None:
-                adapter = formSchemas.getBagClass(section)()
-            adapters[interface]=adapter
-        #non persistent sections
-        adapters[formSchemas.getInterface('payment')] = formSchemas.getBagClass('payment')(portal)
-        return adapters
 
-    def _one_page_checkout_success(self, fields, REQUEST=None):
-        """
-        this process is quite like the regular one except it will use a disposable cart
-        """
-        portal = zapi.getSiteManager()
-        portal = getToolByName(portal,'portal_url').getPortalObject()
-        adapters = self.getSchemaAdapters()
-        shopping_cart = component.getUtility(GPInterfaces.IShoppingCartUtility).get(portal, key="oneshot:bogus")
-        
-        portal_catalog = getToolByName(self, 'portal_catalog')
-        form_payable = dict((p['field_path'], p['payable_path']) for p in self.payablesMap if p['payable_path'])
-        parent_node = self.getParentNode()
-        has_products = 0
-        error_fields = {}
-        for field in fields:
-            if field.getId() in form_payable:
-                try:
-                    quantity = int(REQUEST.form.get(field.fgField.getName()))
-                    if quantity > 0:
-                        has_products += 1
-                        content = parent_node.restrictedTraverse(form_payable[field.getId()], None)                        
-                        if content is not None:
-                            try:
-                                item_factory = zope.component.getMultiAdapter((shopping_cart, content),
-                                    getpaid.core.interfaces.ILineItemFactory)
-                                item_factory.create(quantity)
-                            except zope.component.ComponentLookupError, e:
-                                pass
-                                #import pdb ; pdb.set_trace()
-                    elif quantity < 0 :
-                        error_fields[field.getId()] = "The value for this field is not allowed"
-                except KeyError, e:
-                    pass
-                except ValueError, e:
-                    error_fields[field.getId()] = "The value for this field is not allowed"
-            else:
-                for adapter in adapters.values():
-                    adapter_fields = zope.schema.getFields(adapter.schema)
-                    if field.getId() in adapter_fields.keys():
-                        setattr(adapter,field.getId(),REQUEST.form.get(field.fgField.getName()))
-        
-        if error_fields:
-            error_fields.update({FORM_ERROR_MARKER:'Some of the values where incorrect'})
-            return error_fields
-        if has_products == 0:
-            return {FORM_ERROR_MARKER:'There are no products in the order'}
-        
-        checkout_process = MakePaymentProcess(portal, adapters) 
-        result = checkout_process(shopping_cart)
-        if result:
-            return {FORM_ERROR_MARKER:'%s' % result}
-        else:
-            REQUEST.response.redirect(self.getNextURL(checkout_process.order, portal))
-            
-        
-        
-    def getNextURL(self, order, context):
-        state = order.finance_state
-        f_states = GPInterfaces.workflow_states.order.finance
-        base_url = context.absolute_url()
-        if not 'http://' in base_url:
-            base_url = base_url.replace("https://", "http://")
 
-        if state in (f_states.CANCELLED,
-                     f_states.CANCELLED_BY_PROCESSOR,
-                     f_states.PAYMENT_DECLINED):
-            return base_url + '/@@getpaid-cancelled-declined'
-        
-        if state in (f_states.CHARGEABLE,
-                     f_states.CHARGING,
-                     f_states.REVIEWING,
-                     f_states.CHARGED):
-            return base_url + '/@@getpaid-thank-you?order_id=%s&finance_state=%s' %(order.order_id, state)
-        
+    #--------------------------------------------------------------------------#
+    #One page checkout methods
+    #--------------------------------------------------------------------------#
     def _one_page_checkout_init(self):
         """
         We add all the required fields for getpaid checkout
@@ -355,6 +256,70 @@ class GetpaidPFGAdapter(FormActionAdapter):
                         obj.fgField.required = True
 
         self.success_callback = "_one_page_checkout_success"
+
+    def _one_page_checkout_success(self, fields, REQUEST=None):
+        """
+        this process is quite like the regular one except it will use a disposable cart
+        """
+        portal = zapi.getSiteManager()
+        portal = getToolByName(portal,'portal_url').getPortalObject()
+        adapters = self.getSchemaAdapters()
+        shopping_cart = component.getUtility(GPInterfaces.IShoppingCartUtility).get(portal, key="oneshot:bogus")
+        
+        portal_catalog = getToolByName(self, 'portal_catalog')
+        #The split is because of the fields inside fieldsets that are presented as a "fieldset,field" string
+        form_payable = dict((p['field_path'].split(',')[-1], p['payable_path']) for p in self.payablesMap if p['payable_path'])
+        parent_node = self.getParentNode()
+        has_products = 0
+        error_fields = {}
+        for field in fields:
+            if field.getId() in form_payable:
+                try:
+                    quantity = int(REQUEST.form.get(field.fgField.getName()))
+                    if quantity > 0:
+                        has_products += 1
+                        content = parent_node.restrictedTraverse(form_payable[field.getId()], None)                        
+                        if content is not None:
+                            try:
+                                item_factory = zope.component.getMultiAdapter((shopping_cart, content),
+                                    getpaid.core.interfaces.ILineItemFactory)
+                                item_factory.create(quantity)
+                            except zope.component.ComponentLookupError, e:
+                                pass
+                                #import pdb ; pdb.set_trace()
+                    elif quantity < 0 :
+                        error_fields[field.getId()] = "The value for this field is not allowed"
+                except KeyError, e:
+                    pass
+                except ValueError, e:
+                    error_fields[field.getId()] = "The value for this field is not allowed"
+            else:
+                for adapter in adapters.values():
+                    adapter_fields = zope.schema.getFields(adapter.schema)
+                    if field.getId() in adapter_fields.keys():
+                        setattr(adapter,field.getId(),REQUEST.form.get(field.fgField.getName()))
+        
+        if error_fields:
+            error_fields.update({FORM_ERROR_MARKER:'Some of the values where incorrect'})
+            return error_fields
+        if has_products == 0:
+            return {FORM_ERROR_MARKER:'There are no products in the order'}
+        
+        checkout_process = MakePaymentProcess(portal, adapters) 
+        result = checkout_process(shopping_cart)
+        if result:
+            return {FORM_ERROR_MARKER:'%s' % result}
+        else:
+            REQUEST.response.redirect(self.getNextURL(checkout_process.order, portal))
+            
+        
+    #--------------------------------------------------------------------------#
+    #Multi item cart add methods
+    #--------------------------------------------------------------------------#
+
+    def _multi_item_cart_add_init(self):
+        self.success_callback = "_multi_item_cart_add_success"        
+
                     
     def _multi_item_cart_add_success(self, fields, REQUEST=None):
         scu = zope.component.getUtility(getpaid.core.interfaces.IShoppingCartUtility)
@@ -379,13 +344,38 @@ class GetpaidPFGAdapter(FormActionAdapter):
                     pass
                 except ValueError, e:
                     pass
+
+    #--------------------------------------------------------------------------#
+    #Helper methods
+    #--------------------------------------------------------------------------#
     
-    def _multi_item_cart_add_init(self):
-        self.success_callback = "_multi_item_cart_add_success"
+    def getSchemaAdapters(self):
+        adapters = {}
+        portal = zapi.getSiteManager()
+        portal = getToolByName(portal,'portal_url').getPortalObject()
+        user = getSecurityManager().getUser()
+        formSchemas = component.getUtility(GPInterfaces.IFormSchemas)
+        #persistent sections
+        for section in ('contact_information', 'billing_address', 'shipping_address'):
+            interface = formSchemas.getInterface(section)
+            adapter = component.queryAdapter(user,interface)
+            if adapter is None:
+                adapter = formSchemas.getBagClass(section)()
+            adapters[interface]=adapter
+        #non persistent sections
+        adapters[formSchemas.getInterface('payment')] = formSchemas.getBagClass('payment')(portal)
+        return adapters
+
+    def onSuccess(self, fields, REQUEST=None):
+        """
+        Will call the on success method according to the chosen template
+        """
+        result = getattr(self,self.success_callback)(fields, REQUEST)
+        return result
     
     def setGPTemplate(self, template):
         """
-        This will call the initialization methods for each template
+        This sets the template for each kind of form
         """
         self.fieldsetType = template
         if template:
@@ -394,7 +384,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
 
     def setGPSubmit(self, submit_legend):
         """
-        This will call the initialization methods for each template
+        This sets the chosen submit button legend
         """
         if submit_legend:
             self.makePaymentButton = submit_legend
@@ -464,6 +454,28 @@ class GetpaidPFGAdapter(FormActionAdapter):
         
         return formFieldTitles
 
+    def getNextURL(self, order, context):
+        """
+        Borrowed from GetPaid this will redirect on submit according to the
+        result of the operation
+        """
+        state = order.finance_state
+        f_states = GPInterfaces.workflow_states.order.finance
+        base_url = context.absolute_url()
+        if not 'http://' in base_url:
+            base_url = base_url.replace("https://", "http://")
+
+        if state in (f_states.CANCELLED,
+                     f_states.CANCELLED_BY_PROCESSOR,
+                     f_states.PAYMENT_DECLINED):
+            return base_url + '/@@getpaid-cancelled-declined'
+        
+        if state in (f_states.CHARGEABLE,
+                     f_states.CHARGING,
+                     f_states.REVIEWING,
+                     f_states.CHARGED):
+            return base_url + '/@@getpaid-thank-you?order_id=%s&finance_state=%s' %(order.order_id, state)
+
     def getAvailableGetPaidForms(self):
         """
         We will provide a 'vocabulary' with the predefined form templates available
@@ -477,6 +489,9 @@ class GetpaidPFGAdapter(FormActionAdapter):
 
 
     def buildPayablesList(self):
+        """
+        Creates a list with the payable marked items on our store
+        """
         portal_catalog = getToolByName(self, 'portal_catalog')
         portal_url = getToolByName(self, 'portal_url')
         portal_path = '/'.join(portal_url.getPortalObject().getPhysicalPath())
@@ -491,11 +506,6 @@ class GetpaidPFGAdapter(FormActionAdapter):
         display = DisplayList(stuff)        
         return display
 
-
-    def onSuccess(self, fields, REQUEST=None):
-        result = getattr(self,self.success_callback)(fields, REQUEST)
-        return result
-        # return {'name_on_card':'Invalid Name'}
     
 atapi.registerType(GetpaidPFGAdapter, PROJECTNAME)
 
