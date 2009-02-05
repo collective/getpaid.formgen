@@ -229,7 +229,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
             available_template_list.add( field, field )
         return available_template_list
         
-    def buildPayablesList(self):    
+    def buildPayablesList(self):
         portal_catalog = getToolByName(self, 'portal_catalog')
         portal_url = getToolByName(self, 'portal_url')
         portal_path = '/'.join(portal_url.getPortalObject().getPhysicalPath())
@@ -258,7 +258,29 @@ class GetpaidPFGAdapter(FormActionAdapter):
 ##             lineitem = item_factory.create(0)
         # Now add the selected items to the cart with appropriate quantity
         # ...
-        return {'name_on_card':'Invalid name'}
+        scu = zope.component.getUtility(getpaid.core.interfaces.IShoppingCartUtility)
+        cart = scu.get(self, create=True)
+        portal_catalog = getToolByName(self, 'portal_catalog')
+        # import pdb ; pdb.set_trace()
+        form_payable = dict((p['field_path'], p['payable_path']) for p in self.payablesMap if p['payable_path'])
+        parent_node = self.getParentNode()
+        for field in fields:
+            if field.getId() in form_payable:
+                try:
+                    quantity = int(REQUEST.form.get(field.fgField.getName()))
+                    if quantity > 0:
+                        content = parent_node.restrictedTraverse(form_payable[field.getId()], None)                        
+                        if content is not None:
+                            try:
+                                item_factory = zope.component.getMultiAdapter((cart, content),
+                                    getpaid.core.interfaces.ILineItemFactory)
+                                item_factory.create(quantity)
+                            except zope.component.ComponentLookupError, e:
+                                import pdb ; pdb.set_trace()
+                except KeyError, e:
+                    pass
+                except ValueError, e:
+                    pass
     
 registerATCT(GetpaidPFGAdapter, PROJECTNAME)
 
