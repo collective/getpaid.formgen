@@ -5,11 +5,9 @@ Action for PloneFormGen that helps you getpaid.
 __author__  = 'Daniel Holth <dholth@fastmail.fm>'
 __docformat__ = 'plaintext'
 
-# Python imports
+import pprint
 import logging
-from DateTime import DateTime
 
-# Zope imports
 from AccessControl import ClassSecurityInfo
 from Acquisition import aq_parent
 from zope.interface import classImplements, providedBy
@@ -18,9 +16,6 @@ from zope.formlib import form
 from zope.event import notify
 import zope.component
 
-
-
-# Plone imports
 from Products.Archetypes import atapi
 from Products.Archetypes.public import StringField, SelectionWidget, \
     DisplayList, Schema, ManagedSchema
@@ -30,50 +25,67 @@ from Products.CMFCore.permissions import View, ModifyPortalContent
 from Products.CMFCore.utils import getToolByName
 from Products.validation.config import validation
 
-# DataGridField
 from Products.DataGridField import DataGridField, DataGridWidget
 from Products.DataGridField.SelectColumn import SelectColumn
 from Products.DataGridField.FixedColumn import FixedColumn
 from Products.DataGridField.DataGridField import FixedRow
 
-# Interfaces
 from Products.PloneFormGen.interfaces import IPloneFormGenField
 
-# GetPaid imports
-from Products.PloneGetPaid.browser.checkout import CreateTransientOrder
 from getpaid.core import interfaces as GPInterfaces
 import getpaid.core
 
-# PloneFormGen imports
-from Products.PloneFormGen import HAS_PLONE30
 from Products.PloneFormGen.content.actionAdapter import \
     FormActionAdapter, FormAdapterSchema
-# Local imports
+
+from getpaid.formgen import HAS_PLONE30
 from getpaid.formgen.config import PROJECTNAME
 from getpaid.formgen import GPFGMessageFactory as _
 from getpaid.formgen.checkout import MakeCheckoutProcess
-
 
 
 logger = logging.getLogger("PloneFormGen")
 
 schema = FormAdapterSchema.copy() + Schema((
     StringField('GPFieldsetType',
-                searchable=0,
-                required=1,
+                searchable=False,
+                required=False,
                 mutator='setGPTemplate',
                 widget=SelectionWidget(
-                       label='Get Paid Form Template',
+                       label=u'Get Paid Form Template',
                        i18n_domain = "getpaidpfgadapter",
                        label_msgid = "label_getpaid_template",
                        ),
                 vocabulary='getAvailableGetPaidForms'
-                )
+                ),
+                
+    DataGridField('payablesMap',
+         searchable=False,
+         required=True,
+         schemata='payables mapping',
+         columns=('field_path', 'form_field', 'payable_path'),
+         fixed_rows = "generateFormFieldRows",
+         allow_delete = True,
+         allow_insert = True,
+         allow_reorder = False,
+         widget = DataGridWidget(
+             label='Form fields to Payables mapping',
+             label_msgid = "label_getpaid_field_map",
+             description="""Associate the paths of form fields with payables.""",
+             description_msgid = 'help_getpaid_field_map',
+             columns= {
+                 "field_path" : FixedColumn("Form Fields (path)", visible=False),
+                 "form_field" : FixedColumn("Form Fields"),
+                 "payable_path" : SelectColumn("Payables", 
+                                           vocabulary="buildPayablesList")
+             },
+             i18n_domain = "getpaid.formgen",
+             ),
+        )
 ))
 
 
-
-class GetpaidPFGAdapter( FormActionAdapter ):
+class GetpaidPFGAdapter(FormActionAdapter):
     """
     Do PloneGetPaid stuff upon PFG submit.
     """
@@ -152,25 +164,62 @@ class GetpaidPFGAdapter( FormActionAdapter ):
                 if 'required' in attribute_list:
                     obj.fgField.required = True
 
-                
-
-        self.success_callback = self._one_page_checkout_success
+        self.success_callback = "_one_page_checkout_success"
                     
-    def _multi_item_cart_add_success( self ):
+    def _multi_item_cart_add_success(self):
         pass
     
-    def _multi_item_cart_add_init( self ):
-        self.success_callback = self._multi_item_cart_add_success
+    def _multi_item_cart_add_init(self):
+        self.success_callback = "_multi_item_cart_add_success"
     
-    def setGPTemplate( self, template ):
+    def setGPTemplate(self, template):
         """
         This will call the initialization methods for each template
         """
         if template:
             getattr(self,self.available_templates[template])()
         
+    security.declareProtected(ModifyPortalContent, 'generateFormFieldRows')
+    def generateFormFieldRows(self):
+        """This method returns a list of rows for the field mapping
+           ui. One row is returned for each field in the form folder.
+        """
+        fixedRows = []
+        
+        for formFieldTitle, formFieldPath in self._getIPloneFormGenFieldsPathTitlePair():
+            logger.debug("creating mapper row for %s" % formFieldTitle)
+            fixedRows.append(FixedRow(keyColumn="form_field",
+                                      initialData={"form_field" : formFieldTitle, 
+                                                   "field_path" : formFieldPath,
+                                                   "sf_field" : ""}))
+        return fixedRows
 
-    def getAvailableGetPaidForms( self ):
+    def _getIPloneFormGenFieldsPathTitlePair(self):
+        formFolder = aq_parent(self)
+        formFolderPath = formFolder.getPhysicalPath()
+        formFieldTitles = []
+        
+        for formField in formFolder.objectIds():
+            fieldObj = getattr(formFolder, formField)
+            if IPloneFormGenField.providedBy(fieldObj):
+                formFieldTitles.append((fieldObj.Title().strip(),
+                                        ",".join(fieldObj.getPhysicalPath()[len(formFolderPath):])))
+        
+            # can we also inspect further down the chain
+            if fieldObj.isPrincipiaFolderish:
+                # since nested folders only go 1 level deep
+                # a non-recursive approach approach will work here
+                for subFormField in fieldObj.objectIds():
+                    subFieldObj = getattr(fieldObj, subFormField)
+                    if IPloneFormGenField.providedBy(subFieldObj):
+                        # we append a list in this case
+                        formFieldTitles.append(("%s --> %s" % (fieldObj.Title().strip(),
+                                                               subFieldObj.Title().strip()),
+                                                ",".join(subFieldObj.getPhysicalPath()[len(formFolderPath):])))
+        
+        return formFieldTitles
+
+    def getAvailableGetPaidForms(self):
         """
         We will provide a 'vocabulary' with the predefined form templates available
         It is not possible for the moment to do any kind of form without restriction
@@ -181,24 +230,51 @@ class GetpaidPFGAdapter( FormActionAdapter ):
             available_template_list.add( field, field )
         return available_template_list
         
+    def buildPayablesList(self):
+        portal_catalog = getToolByName(self, 'portal_catalog')
+        portal_url = getToolByName(self, 'portal_url')
+        portal_path = '/'.join(portal_url.getPortalObject().getPhysicalPath())
+        buyables = portal_catalog.searchResults(
+            dict(object_provides='Products.PloneGetPaid.interfaces.IPayableMarker',
+                 path=portal_path))
+        stuff = [('', '')]
+        for b in buyables:
+            o = b.getObject()
+            payable = GPInterfaces.IPayable(o)    
+            stuff.append((b.getPath(), o.title + " : %0.2f" % (payable.price)))
+        display = DisplayList(stuff)        
+        return display
     
     def onSuccess(self, fields, REQUEST=None):
-##         scu = zope.component.getUtility(getpaid.core.interfaces.IShoppingCartUtility)
-##         cart = scu.get(self, create=True)
-##         portal_catalog = getToolByName(self, 'portal_catalog')
-##         buyables = portal_catalog.searchResults(
-##             dict(object_provides='Products.PloneGetPaid.interfaces.IBuyableMarker',
-##                 path=self.text))
-##         for b in (b.getObject() for b in buyables):
-##             item_factory = \
-##                 zope.component.getMultiAdapter( (cart, b), 
-##                     getpaid.core.interfaces.ILineItemFactory )
-##             lineitem = item_factory.create(0)
-        checkout_process = MakeCheckoutProcess( context, adapters ) #TODO: Get context and adapters
-        #TODO: create a temp cart
-        result = checkout_process(temp_cart)
-        # notify( ObjectCreatedEvent( order ) ) #Why did I put this here?
-        return {'name_on_card':'Invalid Name'}
+        scu = zope.component.getUtility(getpaid.core.interfaces.IShoppingCartUtility)
+        cart = scu.get(self, create=True)
+        portal_catalog = getToolByName(self, 'portal_catalog')
+        form_payable = dict((p['field_path'], p['payable_path']) for p in self.payablesMap if p['payable_path'])
+        parent_node = self.getParentNode()
+        for field in fields:
+            if field.getId() in form_payable:
+                try:
+                    quantity = int(REQUEST.form.get(field.fgField.getName()))
+                    if quantity > 0:
+                        content = parent_node.restrictedTraverse(form_payable[field.getId()], None)                        
+                        if content is not None:
+                            try:
+                                item_factory = zope.component.getMultiAdapter((cart, content),
+                                    getpaid.core.interfaces.ILineItemFactory)
+                                item_factory.create(quantity)
+                            except zope.component.ComponentLookupError, e:
+                                import pdb ; pdb.set_trace()
+                except KeyError, e:
+                    pass
+                except ValueError, e:
+                    pass
     
+        # checkout_process = MakeCheckoutProcess( context, adapters ) #TODO: Get context and adapters
+        # #TODO: create a temp cart
+        # result = checkout_process(temp_cart)
+        # # notify( ObjectCreatedEvent( order ) ) #Why did I put this here?
+        # return {'name_on_card':'Invalid Name'}
+    
+
 registerATCT(GetpaidPFGAdapter, PROJECTNAME)
 
