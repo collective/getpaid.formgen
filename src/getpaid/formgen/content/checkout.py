@@ -1,7 +1,8 @@
 #GetPaid imports
-from Products.PloneGetPaid.interfaces import IGetPaidManagementOptions, ICreateTransientOrder
+from Products.PloneGetPaid.interfaces import IGetPaidManagementOptions
 from getpaid.core import interfaces, options
 from getpaid.core.order import Order
+from getpaid.formgen.interfaces import ICreateTransientOrder #It is a getpaid import, with a tweak
 
 #Local imports
 from getpaid.formgen.interfaces import IMakePaymentProcess

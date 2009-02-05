@@ -67,7 +67,6 @@ schema = FormAdapterSchema.copy() + Schema((
          schemata='payables mapping',
          columns=('field_path', 'form_field', 'payable_path'),
          fixed_rows = "generateFormFieldRows",
-         mutator = "updateFieldsData",
          allow_delete = True,
          allow_insert = True,
          allow_reorder = False,
@@ -106,6 +105,16 @@ class BillingInfo( getpaid.core.options.PropertyBag ):
 
 BillingInfo = BillingInfo.makeclass( getpaid.core.interfaces.IUserPaymentInformation )
 
+def order_fields(x,y):
+    if x[1]>y[1]:
+        return 1
+    if x[1]<y[1]:
+        return -1
+    else:
+        return 0
+
+
+
 def getAvailableCreditCards(self):
     """
     We need the vocabulary for the credit cards in a form that can be understood by pfg
@@ -143,49 +152,49 @@ class GetpaidPFGAdapter( FormActionAdapter ):
     ###################################################################
 
     
-    checkout_fields = {'User Data':{
+    checkout_fields = {'User Data':[{
                        
         'name':['FormStringField',{'title':u"Your Full Name",
-                                   'required':True}],
+                                   'required':True},10],
         'phone_number':['FormStringField',{'title':u"Phone Number",
                                          'description':u"Only digits allowed - e.g. 3334445555 and not 333-444-5555",
-                                           'required':True}],
+                                           'required':True},11],
         'email':['FormStringField',{'title':u"Email",
                                   'description':u"Contact Information",
-                                    'required':True}]
-        },
-                       'Billing Address Info':{
+                                    'required':True},11]
+        },10],
+                       'Billing Address Info':[{
         'bill_first_line':['FormStringField',{'title':u"Address 1",
-                                              'required':True}],
-        'bill_second_line':['FormStringField',{'title':u"Address 2"}],
+                                              'required':True},10],
+        'bill_second_line':['FormStringField',{'title':u"Address 2"},11],
         'bill_city':['FormStringField',{'title':u"City",
-                                        'required':True}],
+                                        'required':True},12],
         'bill_postal_code':['FormStringField',{'title':u"Zip/Postal Code",
-                                               'required':True}],
+                                               'required':True},13],
         'bill_country':['FormStringField',{'title':u"Country Code",
                                            'description':'Your Conutry ISO code',
-                                               'required':True}],
+                                               'required':True},14],
         'bill_state':['FormStringField',{'title':u"State Code",
                                          'description':'Your State ISO code',
-                                               'required':True}]},
-                        'Credit Info':{
+                                               'required':True},15]},20],
+                        'Credit Info':[{
         'credit_card_type':['FormSelectionField',{'title':u"Credit Card Type",
                                                   'fgVocabulary':getAvailableCreditCards,
-                                                  'required':True}],
+                                                  'required':True},10],
         'name_on_card':['FormStringField',{'title':u"Card Holder Name",
                                          'description':u"Enter the full name, as it appears on the card.",
-                                           'required':True}],
+                                           'required':True},11],
         'credit_card':['FormStringField',{'title':u"Credit Card Number",
                                           'description':u"Only digits allowed - e.g. 4444555566667777 and not 4444-5555-6666-7777 ",
-                                          'required':True}],
+                                          'required':True},12],
         'cc_expiration':['FormDateField',{'title':u"Credit Card Expiration Date",
                                           'description':u"Credit Card Expiration Date",
-                                          'required':True}],
+                                          'required':True},13],
         'cc_cvc':['FormIntegerField',{'title':u"Credit Card Verfication Number",
                                       'description':u"For MC, Visa, and DC, this is a 3-digit number on back of the card.  For AmEx, this is a 4-digit code on front of card. ",
                                       'fgmaxlength':4,
-                                      'required':True}],
-        }
+                                      'required':True},14],
+        },30]
         
                        }
     
@@ -292,11 +301,19 @@ class GetpaidPFGAdapter( FormActionAdapter ):
         TODO: Find a way to get ordered fields
         """
         oids = self.objectIds()
-        for frameset in self.checkout_fields.keys():
+        ordered_keys = [(afieldset,self.checkout_fields[afieldset][1]) for afieldset in self.checkout_fields.keys()]
+        ordered_keys.sort(order_fields)
+        ordered_keys = [ordered_key[0] for ordered_key in ordered_keys] # just lazyness to refactor the rest of the method
+        
+        for frameset in ordered_keys:
             self.invokeFactory('FieldsetFolder',frameset)
             frame_folder = self[frameset]
             frame_folder.setTitle(frameset)
-            for field in self.checkout_fields[frameset].keys():
+            ordered_fields = [(fld,self.checkout_fields[frameset][2]) for fld in self.checkout_fields[frameset].keys()]
+            ordered_fields.sort(order_fields)
+            ordered_fields = [ordered_key[0] for ordered_key in ordered_fields]
+            
+            for field in ordered_fields:
                 if field not in oids:
                     aField = self.checkout_fields[frameset][field]
                     frame_folder.invokeFactory(aField[0],field)
@@ -364,6 +381,9 @@ class GetpaidPFGAdapter( FormActionAdapter ):
 
     def updateFieldsData(self, fieldData):
         for fields in fieldData:
+            if not 'payable_path' in fields.keys():
+                return
+
             if fields['payable_path']:
                 #There should not be more than one level of recursion
                 local_widget_name = fields['field_path'].split("-->")
