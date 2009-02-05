@@ -490,7 +490,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
             o = b.getObject()
             payable = GPInterfaces.IPayable(o)
             stuff.append((b.getPath(), o.title + " : %0.2f" % (payable.price)))
-        display = DisplayList(stuff)        
+        display = DisplayList(stuff)
         return display
 
     
