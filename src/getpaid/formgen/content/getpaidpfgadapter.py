@@ -64,11 +64,10 @@ schema = FormAdapterSchema.copy() + Schema((
     DataGridField('payablesMap',
          searchable=False,
          required=True,
-         schemata='payables mapping',
          columns=('field_path', 'form_field', 'payable_path'),
          fixed_rows = "generateFormFieldRows",
-         allow_delete = True,
-         allow_insert = True,
+         allow_delete = False,
+         allow_insert = False,
          allow_reorder = False,
          widget = DataGridWidget(
              label='Form fields to Payables mapping',
@@ -96,6 +95,7 @@ schema = FormAdapterSchema.copy() + Schema((
     
 ))
 
+finalizeATCTSchema(schema, folderish=False, moveDiscussion=False)
 
 class BillingInfo( getpaid.core.options.PropertyBag ):
     title = "Billing Information"
@@ -135,12 +135,20 @@ def getAvailableCreditCards(self):
     return tuple(available_cards)
     
 
-class GetpaidPFGAdapter( FormActionAdapter ):
+class DebugFieldProperty(atapi.ATFieldProperty):
+    def __get__(self, inst, klass):
+        import pdb; pdb.set_trace()
+        return super(DebugFieldProperty, self).__get__(inst, klass)
+
+class GetpaidPFGAdapter(FormActionAdapter):
     """
     Do PloneGetPaid stuff upon PFG submit.
     """
     schema = schema
     security = ClassSecurityInfo()
+
+    fieldsetType = atapi.ATFieldProperty('GPFieldsetType')    
+    makePaymentButton = atapi.ATFieldProperty('GPMakePaymentButton')
     
     portal_type = 'GetpaidPFGAdapter'
     archetype_name = 'Getpaid Adapter'
@@ -203,12 +211,13 @@ class GetpaidPFGAdapter( FormActionAdapter ):
         },30]
         
                        }
+
     
-    def initializeArchetype(self, **kwargs):
-        """Initialize Private instance variables
-        """
-        FormActionAdapter.initializeArchetype(self, **kwargs)
-        self._fieldsForGPType = {}
+    # def initializeArchetype(self, **kwargs):
+    #     """Initialize Private instance variables
+    #     """
+    #     FormActionAdapter.initializeArchetype(self, **kwargs)
+    #     self._fieldsForGPType = {}
 
     def getSchemaAdapters(self):
         adapters = {}
@@ -378,8 +387,9 @@ class GetpaidPFGAdapter( FormActionAdapter ):
         """
         This will call the initialization methods for each template
         """
+        self.fieldsetType = template
         if template:
-            self.getField('GPFieldsetType').set(self,template)
+            self.fieldsetType = template
             getattr(self,self.available_templates[template])()
 
     def setGPSubmit(self, submit_legend):
@@ -387,7 +397,7 @@ class GetpaidPFGAdapter( FormActionAdapter ):
         This will call the initialization methods for each template
         """
         if submit_legend:
-            self.getField('GPMakePaymentButton').set(self,submit_legend)
+            self.makePaymentButton = submit_legend
             self.setSubmitLabel(submit_legend)
 
     def updateFieldsData(self, fieldData):
@@ -487,6 +497,5 @@ class GetpaidPFGAdapter( FormActionAdapter ):
         return result
         # return {'name_on_card':'Invalid Name'}
     
-
-registerATCT(GetpaidPFGAdapter, PROJECTNAME)
+atapi.registerType(GetpaidPFGAdapter, PROJECTNAME)
 
