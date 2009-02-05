@@ -12,5 +12,4 @@ PRODUCT_DEPENDENCIES = []
 ADD_PERMISSIONS = {
     'GetpaidPFGAdapter' : 'PloneFormGen: Add GetPaid adapter',
 }
-
-
+setDefaultRoles(ADD_PERMISSIONS['GetpaidPFGAdapter'], ['Manager',])

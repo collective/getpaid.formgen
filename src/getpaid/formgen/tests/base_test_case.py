@@ -14,11 +14,11 @@ if __name__ == '__main__':
 pgp_user = "auser"
 pgp_password = "apassword"
 from Products.PloneGetPaid.config import PLONE3
+from Testing import ZopeTestCase
 if not PLONE3:
     ZopeTestCase.installProduct('CMFonFive')
 ##/code-section module-header
 
-from Testing import ZopeTestCase
 from Products.PloneTestCase import PloneTestCase
 from getpaid.formgen.config import PRODUCT_DEPENDENCIES
 from getpaid.formgen.config import DEPENDENCIES

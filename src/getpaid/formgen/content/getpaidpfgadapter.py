@@ -25,6 +25,8 @@ from Products.ATContentTypes.content.base import registerATCT
 from Products.CMFCore.permissions import View, ModifyPortalContent
 from Products.CMFCore.utils import getToolByName
 from Products.validation.config import validation
+from Products.CMFCore.Expression import Expression, getExprContext
+from Products.CMFPlone.utils import safe_hasattr
 
 from Products.DataGridField import DataGridField, DataGridWidget
 from Products.DataGridField.SelectColumn import SelectColumn
@@ -133,11 +135,6 @@ def getAvailableCreditCards(self):
         available_cards.append("%s|%s" % (card,card) )
     return tuple(available_cards)
     
-
-class DebugFieldProperty(atapi.ATFieldProperty):
-    def __get__(self, inst, klass):
-        import pdb; pdb.set_trace()
-        return super(DebugFieldProperty, self).__get__(inst, klass)
 
 class GetpaidPFGAdapter(FormActionAdapter):
     """
@@ -287,7 +284,6 @@ class GetpaidPFGAdapter(FormActionAdapter):
                                 item_factory.create(quantity)
                             except zope.component.ComponentLookupError, e:
                                 pass
-                                #import pdb ; pdb.set_trace()
                     elif quantity < 0 :
                         error_fields[field.getId()] = "The value for this field is not allowed"
                 except KeyError, e:
@@ -361,14 +357,14 @@ class GetpaidPFGAdapter(FormActionAdapter):
                 try:
                     quantity = int(REQUEST.form.get(field.fgField.getName()))
                     if quantity > 0:
-                        content = parent_node.restrictedTraverse(form_payable[field.getId()], None)                        
+                        content = parent_node.restrictedTraverse(form_payable[field.getId()], None)
                         if content is not None:
                             try:
                                 item_factory = zope.component.getMultiAdapter((cart, content),
                                     getpaid.core.interfaces.ILineItemFactory)
                                 item_factory.create(quantity)
                             except zope.component.ComponentLookupError, e:
-                                import pdb ; pdb.set_trace()
+                                pass
                 except KeyError, e:
                     pass
                 except ValueError, e:
@@ -422,7 +418,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
                             try:
                                 actionAdapter.setExecCondition(Expression("python: here.aq_parent['%s'].run_other_adapters" % self.getId()))
                             except:
-                            actionAdapter.setExecCondition(Expression(""))
+                                actionAdapter.setExecCondition(Expression(""))
 
 
     def setGPSubmit(self, submit_legend):
@@ -544,7 +540,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
         stuff = [('', '')]
         for b in buyables:
             o = b.getObject()
-            payable = GPInterfaces.IPayable(o)    
+            payable = GPInterfaces.IPayable(o)
             stuff.append((b.getPath(), o.title + " : %0.2f" % (payable.price)))
         display = DisplayList(stuff)        
         return display
