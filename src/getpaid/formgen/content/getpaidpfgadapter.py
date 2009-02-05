@@ -65,17 +65,7 @@ schema = FormAdapterSchema.copy() + Schema((
                 )
 ))
 
-# IBillingAddressSchema = Schema((
-#     bill_name = schema.TextLine( title = _(u"Full Name"))
-#     bill_first_line = schema.TextLine( title = _(u"Address 1"))
-#     bill_second_line = schema.TextLine( title = _(u"Address 2"), required=False )
-#     bill_city = schema.TextLine( title = _(u"City") )
-#     bill_country = schema.Choice( title = _(u"Country"),
-#                                     vocabulary = "getpaid.countries")
-#     bill_state = schema.Choice( title = _(u"State"),
-#                                   vocabulary="getpaid.states" )
-#     bill_postal_code = schema.TextLine( title = _(u"Zip/Postal Code"))
-#     ))
+
 
 class GetpaidPFGAdapter( FormActionAdapter ):
     """
@@ -91,17 +81,43 @@ class GetpaidPFGAdapter( FormActionAdapter ):
     available_templates = {'One Page Checkout': '_one_page_checkout_init',
                            'Multi item cart add': '_multi_item_cart_add_init' }
 
+    success_callback = None
 
 ##     bill_country = schema.Choice( title = _(u"Country"),
 ##                                     vocabulary = "getpaid.countries")
 ##     bill_state = schema.Choice( title = _(u"State"),
 ##                                   vocabulary="getpaid.states" )
+    ###################################################################
 
-    checkout_fields = {'bill_name':['FormTextField',{title:u"Full Name"}],
-                       'bill_first_line':['FormTextField',{title:u"Address 1"],
-                       'bill_second_line':['FormTextField',{title:u"Address 1"],
-                       'bill_city':['FormTextField',{title:u"City"],
-                       'bill_postal_code':['FormTextField',{title:u"Zop/Postal Code"]  
+    # DONT STORED PERSISTENTLY
+##     credit_card_type = schema.Choice( title = _(u"Credit Card Type"),
+##                                       source = "getpaid.core.accepted_credit_card_types",)
+
+##     credit_card = CreditCardNumber( title = _(u"Credit Card Number"),
+##                                     description = _(u"Only digits allowed - e.g. 4444555566667777 and not 4444-5555-6666-7777 "))
+
+##     cc_expiration = schema.Date( title = _(u"Credit Card Expiration Date"),
+##                                     description = _(u"Select month and year"))
+
+##     cc_cvc = schema.TextLine(title = _(u"Credit Card Verfication Number"),
+##                              description = _(u"For MC, Visa, and DC, this is a 3-digit number on back of the card.  For AmEx, this is a 4-digit code on front of card. "),
+##                              min_length = 3,
+##                              max_length = 4)
+    ###################################################################
+
+    checkout_fields = {
+        'name':['FormStringField',{'title':u"Your Full Name"}],
+        'phone_number':['FormStringField',{'title':u"Phone Number",
+                                         'description':u"Only digits allowed - e.g. 3334445555 and not 333-444-5555"}],
+        'email':['FormStringField',{'title':u"Email",
+                                  'description':u"Contact Information"}],
+        'bill_first_line':['FormStringField',{'title':u"Address 1"}],
+        'bill_second_line':['FormStringField',{'title':u"Address 1"}],
+        'bill_city':['FormStringField',{'title':u"City"}],
+        'bill_postal_code':['FormStringField',{'title':u"Zip/Postal Code"}],
+        'name_on_card':['FormStringField',{'title':u"Card Holder Name",
+                                         'description':u"Enter the full name, as it appears on the card. "}],
+        
                        }
     
     def initializeArchetype(self, **kwargs):
@@ -110,6 +126,9 @@ class GetpaidPFGAdapter( FormActionAdapter ):
         FormActionAdapter.initializeArchetype(self, **kwargs)
         self._fieldsForGPType = {}
 
+    def _one_page_checkout_success( self ):
+        pass
+    
     def _one_page_checkout_init( self ):
         """
         We add all the required fields for getpaid checkout
@@ -120,20 +139,29 @@ class GetpaidPFGAdapter( FormActionAdapter ):
                 aField = self.checkout_fields[field]
                 self.invokeFactory(aField[0],field)
                 obj = self[field]
-                attribute_list = aFile[1]
-                for attr in attribute_list:
-                    setattr(obj,attr,attirbute_list[attr]
-                    
+                obj.fgField.__name__ = field
+                attribute_list = aField[1]
+                for attr in attribute_list.keys():
+                    obj.getField(attr).set(obj,attribute_list[attr])
+                if 'required' in attribute_list:
+                    obj.fgField.required = True
 
-    def _multi_item_cart_add_init( self ):
+                
+
+        self.success_callback = self._one_page_checkout_success
+                    
+    def _multi_item_cart_add_success( self ):
         pass
+    
+    def _multi_item_cart_add_init( self ):
+        self.success_callback = self._multi_item_cart_add_success
     
     def setGPTemplate( self, template ):
         """
         This will call the initialization methods for each template
         """
         if template:
-            getattr(self,self.available_templates[sections_group])()
+            getattr(self,self.available_templates[template])()
         
 
     def getAvailableGetPaidForms( self ):
@@ -146,19 +174,21 @@ class GetpaidPFGAdapter( FormActionAdapter ):
         for field in self.available_templates.keys():
             available_template_list.add( field, field )
         return available_template_list
+        
     
     def onSuccess(self, fields, REQUEST=None):
-        scu = zope.component.getUtility(getpaid.core.interfaces.IShoppingCartUtility)
-        cart = scu.get(self, create=True)
-        portal_catalog = getToolByName(self, 'portal_catalog')
-        buyables = portal_catalog.searchResults(
-            dict(object_provides='Products.PloneGetPaid.interfaces.IBuyableMarker',
-                path=self.text))
-        for b in (b.getObject() for b in buyables):
-            item_factory = \
-                zope.component.getMultiAdapter( (cart, b), 
-                    getpaid.core.interfaces.ILineItemFactory )
-            lineitem = item_factory.create(0)
+##         scu = zope.component.getUtility(getpaid.core.interfaces.IShoppingCartUtility)
+##         cart = scu.get(self, create=True)
+##         portal_catalog = getToolByName(self, 'portal_catalog')
+##         buyables = portal_catalog.searchResults(
+##             dict(object_provides='Products.PloneGetPaid.interfaces.IBuyableMarker',
+##                 path=self.text))
+##         for b in (b.getObject() for b in buyables):
+##             item_factory = \
+##                 zope.component.getMultiAdapter( (cart, b), 
+##                     getpaid.core.interfaces.ILineItemFactory )
+##             lineitem = item_factory.create(0)
+        return {'name_on_card':'Because you suck'}
     
 registerATCT(GetpaidPFGAdapter, PROJECTNAME)
 
