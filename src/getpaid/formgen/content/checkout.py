@@ -9,6 +9,8 @@ from getpaid.formgen.interfaces import IMakePaymentProcess
 #Zope imports
 from zope import interface, component
 from zope.app import zapi
+from zope.event import notify
+from zope.app.event.objectevent import ObjectCreatedEvent
 
 #Plone imports
 from Products.CMFCore.utils import getToolByName
@@ -41,7 +43,7 @@ class CreateTransientOrder( object ):
 
         order.shopping_cart = shopping_cart
 
-        for section in ('contact_information','billing_address'):
+        for section in ('contact_information','billing_address','shipping_address'):
             interface = formSchemas.getInterface(section)
             bag = formSchemas.getBagClass(section).frominstance(adapters[interface])
             setattr(order,section,bag)
@@ -86,6 +88,7 @@ class MakePaymentProcess( object ):
             shopping_cart = loads( dumps( shopping_cart ) )
 
         order = self.order( self.adapters, shopping_cart )
+        notify( ObjectCreatedEvent( order ) )
         order.processor_id = self.processor_name
         order.finance_workflow.fireTransition( "create" )
         
