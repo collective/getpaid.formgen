@@ -71,7 +71,8 @@ class MakePaymentProcess( object ):
                                                interfaces.IPaymentProcessor,
                                                processor_name )
         self.adapters = adapters
-        self.order = CreateTransientOrder()
+        #self.order = CreateTransientOrder()
+        self.order = None
         self.context = context
         
     def __call__( self, oneshot=None ):
@@ -87,14 +88,15 @@ class MakePaymentProcess( object ):
             shopping_cart = component.getUtility( interfaces.IShoppingCartUtility ).get( self.context )
             shopping_cart = loads( dumps( shopping_cart ) )
 
-        order = self.order( self.adapters, shopping_cart )
-        notify( ObjectCreatedEvent( order ) )
-        order.processor_id = self.processor_name
-        order.finance_workflow.fireTransition( "create" )
+        order_factory = CreateTransientOrder()
+        self.order = order_factory( self.adapters, shopping_cart )
+        notify( ObjectCreatedEvent( self.order ) )
+        self.order.processor_id = self.processor_name
+        self.order.finance_workflow.fireTransition( "create" )
         
         # extract data to our adapters
         formSchemas = component.getUtility(interfaces.IFormSchemas)
-        result = self.processor.authorize( order, self.adapters[formSchemas.getInterface('payment')] )
+        result = self.processor.authorize( self.order, self.adapters[formSchemas.getInterface('payment')] )
         if result is interfaces.keys.results_async:
             # shouldn't ever happen, on async processors we're already directed to the third party
             # site on the final checkout step, all interaction with an async processor are based on processor
@@ -102,12 +104,12 @@ class MakePaymentProcess( object ):
             pass
         elif result is interfaces.keys.results_success:
             order_manager = component.getUtility( interfaces.IOrderManager )
-            order_manager.store( order )
-            order.finance_workflow.fireTransition("authorize")
+            order_manager.store( self.order )
+            self.order.finance_workflow.fireTransition("authorize")
             # kill the cart after we create the order
             component.getUtility( interfaces.IShoppingCartUtility ).destroy( self.context )
             return None
         else:
-            order.finance_workflow.fireTransition('reviewing-declined')
+            self.order.finance_workflow.fireTransition('reviewing-declined')
             return  result
 

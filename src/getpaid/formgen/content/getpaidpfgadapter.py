@@ -67,6 +67,7 @@ schema = FormAdapterSchema.copy() + Schema((
          schemata='payables mapping',
          columns=('field_path', 'form_field', 'payable_path'),
          fixed_rows = "generateFormFieldRows",
+         mutator = "updateFieldsData",
          allow_delete = True,
          allow_insert = True,
          allow_reorder = False,
@@ -160,6 +161,12 @@ class GetpaidPFGAdapter( FormActionAdapter ):
         'bill_city':['FormStringField',{'title':u"City",
                                         'required':True}],
         'bill_postal_code':['FormStringField',{'title':u"Zip/Postal Code",
+                                               'required':True}],
+        'bill_country':['FormStringField',{'title':u"Country Code",
+                                           'description':'Your Conutry ISO code',
+                                               'required':True}],
+        'bill_state':['FormStringField',{'title':u"State Code",
+                                         'description':'Your State ISO code',
                                                'required':True}]},
                         'Credit Info':{
         'credit_card_type':['FormSelectionField',{'title':u"Credit Card Type",
@@ -217,11 +224,14 @@ class GetpaidPFGAdapter( FormActionAdapter ):
         portal_catalog = getToolByName(self, 'portal_catalog')
         form_payable = dict((p['field_path'], p['payable_path']) for p in self.payablesMap if p['payable_path'])
         parent_node = self.getParentNode()
+        has_products = 0
+        error_fields = {}
         for field in fields:
             if field.getId() in form_payable:
                 try:
                     quantity = int(REQUEST.form.get(field.fgField.getName()))
                     if quantity > 0:
+                        has_products += 1
                         content = parent_node.restrictedTraverse(form_payable[field.getId()], None)                        
                         if content is not None:
                             try:
@@ -229,26 +239,53 @@ class GetpaidPFGAdapter( FormActionAdapter ):
                                     getpaid.core.interfaces.ILineItemFactory)
                                 item_factory.create(quantity)
                             except zope.component.ComponentLookupError, e:
-                                import pdb ; pdb.set_trace()
+                                pass
+                                #import pdb ; pdb.set_trace()
+                    elif quantity < 0 :
+                        error_fields[field.getId()] = "The value for this field is not allowed"
                 except KeyError, e:
                     pass
                 except ValueError, e:
-                    pass
+                    error_fields[field.getId()] = "The value for this field is not allowed"
             else:
                 for adapter in adapters.values():
                     adapter_fields = zope.schema.getFields(adapter.schema)
                     if field.getId() in adapter_fields.keys():
                         setattr(adapter,field.getId(),REQUEST.form.get(field.fgField.getName()))
-                        
-                
-                
+        
+        if error_fields:
+            error_fields.update({FORM_ERROR_MARKER:'Some of the values where incorrect'})
+            return error_fields
+        if has_products == 0:
+            return {FORM_ERROR_MARKER:'There are no products in the order'}
+        
         checkout_process = MakePaymentProcess(portal, adapters) 
         result = checkout_process(shopping_cart)
         if result:
             return {FORM_ERROR_MARKER:'%s' % result}
+        else:
+            REQUEST.response.redirect(self.getNextURL(checkout_process.order, portal))
+            
         
         
-    
+    def getNextURL(self, order, context):
+        state = order.finance_state
+        f_states = GPInterfaces.workflow_states.order.finance
+        base_url = context.absolute_url()
+        if not 'http://' in base_url:
+            base_url = base_url.replace("https://", "http://")
+
+        if state in (f_states.CANCELLED,
+                     f_states.CANCELLED_BY_PROCESSOR,
+                     f_states.PAYMENT_DECLINED):
+            return base_url + '/@@getpaid-cancelled-declined'
+        
+        if state in (f_states.CHARGEABLE,
+                     f_states.CHARGING,
+                     f_states.REVIEWING,
+                     f_states.CHARGED):
+            return base_url + '/@@getpaid-thank-you?order_id=%s&finance_state=%s' %(order.order_id, state)
+        
     def _one_page_checkout_init(self):
         """
         We add all the required fields for getpaid checkout
@@ -324,6 +361,27 @@ class GetpaidPFGAdapter( FormActionAdapter ):
         """
         if submit_legend:
             self.setSubmitLabel(submit_legend)
+
+    def updateFieldsData(self, fieldData):
+        for fields in fieldData:
+            if fields['payable_path']:
+                #There should not be more than one level of recursion
+                local_widget_name = fields['field_path'].split("-->")
+                if len(local_widget_name) > 1:
+                    widget = self[local_widget_name[0]][local_widget_name[1]]
+                else:
+                    widget = self[local_widget_name[0]]
+                    
+                parent_node = self.getParentNode()
+                content = parent_node.restrictedTraverse(fields['payable_path'], None)
+                
+                payable = GPInterfaces.IPayable(content)    
+                title = content.title + " : $%0.2f" % (payable.price)
+                description = content.description
+
+                widget.setTitle(title)
+                widget.setDescription(description)
+                
         
     security.declareProtected(ModifyPortalContent, 'generateFormFieldRows')
     def generateFormFieldRows(self):

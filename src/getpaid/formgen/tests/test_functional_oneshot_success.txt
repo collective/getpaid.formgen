@@ -1,0 +1,144 @@
+==============================================================================
+Doctest generated Mon Oct 15 2007 12:36:37 GMT+0200 (CEST)
+by cjj
+==============================================================================
+
+Create the browser object we'll be using.
+
+    >>> from Products.Five.testbrowser import Browser
+    >>> browser = Browser()
+    >>> browser.handleErrors = False
+    >>> browser.open(self.portal.absolute_url())
+    >>> 'Welcome to Plone' in browser.contents
+    True
+
+Preparing the site to test for anonymous and logged in users behaviour of
+address book in checkout
+
+     >>> membership = self.portal.portal_membership
+     >>> membership.addMember('testmanager', 'secret',
+     ...             ['Member', 'Manager'], [])
+     >>> membership.getMemberById('testmanager').setMemberProperties({'email':'testmember@getpaid.org','location':'here on earth'})
+     >>> browser.getLink('Log in').click()
+     >>> browser.getControl('Login Name').value = 'testmanager'
+     >>> browser.getControl('Password').value = 'secret'
+     >>> browser.getControl('Log in').click()
+
+     >>> self.portal.portal_quickinstaller.installProduct('PloneGetPaid')
+     'Installing Dependencies\n'
+     >>> self.portal.portal_quickinstaller.installProduct('PloneFormGen')
+     "Installing PloneFormGen\nInstalled types\nAdded all my types to portal_factory\nInstalled skin\nAdded form fields & adapters to types_not_searched\nAdded form fields & adapters to metaTypesNotToList\nSet up empty field and adapter workflows.\nAdded FormFolder to default_page_types\nAdded FormFolder to kupu's linkable types\nAdded PloneFormGen Tool\nAdded PloneFormGen properysheet\nAdded configlet PloneFormGen\nAdded ploneformgen.kss to kss registry\nSuccessfully installed PloneFormGen.\n"
+     >>> self.portal.portal_quickinstaller.installProduct('getpaid.formgen')
+     u'Installing dependency products\nInstalling GetpaidPFGAdapter\nInstalled types and added to portal_factory via portal_setup\nAdding GetpaidPFGAdapter to Form Field allowed_content_types\nAdded form fields & adapters to types_not_searched\nAdded form fields & adapters to metaTypesNotToList\nSuccessfully installed getpaid.formgen.\n'
+     >>> browser.getLink('Home').click()
+ 
+Setting required settings. (Especially anonymous checkout)
+
+    >>> browser.getLink('Site Setup').click()
+    >>> browser.getLink('GetPaid').click()
+    >>> browser.getLink('Site Profile').click()
+    >>> browser.getControl('Contact Email').value = 'info@plonegetpaid.com'
+    >>> browser.getControl( name="form.store_name").value = 'Test this fake company'
+    >>> browser.getControl('Contact Country').value = ['US']
+    >>> browser.getControl('Apply').click()
+    >>> browser.getLink('GetPaid').click()
+    >>> browser.getLink('Content Types').click()
+    >>> browser.getLink('GetPaid').click()
+    >>> browser.getLink('Payment Options').click()
+    >>> browser.getControl(name = 'form.payment_processor').displayValue = ['Testing Processor']
+    >>> browser.getControl(name = 'form.allow_anonymous_checkout.used').value = 'on'
+    >>> browser.getControl(name = 'form.allow_anonymous_checkout').value = True
+    >>> browser.getControl('Apply').click()
+    >>> browser.getLink('GetPaid').click()
+    >>> browser.getLink('Payment Processor Settings').click()
+    >>> browser.getControl(name="form.allow_authorization").displayValue = ['allow_authorization']
+    >>> browser.getControl(name="form.allow_capture").displayValue = ['allow_capture']
+    >>> browser.getControl(name="form.allow_refunds").displayValue = ['allow_refund']    
+    >>> browser.getControl('Apply').click()
+    >>> browser.getLink('GetPaid').click()
+    >>> browser.getLink('Email Notifications').click()
+    >>> browser.getControl(name='form.merchant_email_notification').displayValue = ['Do not send merchant email notification of a completed transaction']
+    >>> browser.getControl('Apply').click()
+    >>> browser.getLink('GetPaid').click()
+    >>> browser.getLink('Legal Disclaimers').click()
+    >>> browser.getControl(name='form.disclaimer').value = 'Test disclaimer'
+    >>> browser.getControl(name='form.privacy_policy').value = 'Test privacy policy'
+    >>> browser.getControl('Apply').click()
+    >>> browser.getLink('GetPaid').click() 
+    >>> 'Test this fake company' in browser.contents
+    True
+    >>> browser.getLink('Payment Options').click()
+    >>> browser.getControl(name ='form.allow_anonymous_checkout').value
+    True
+
+Here we are setting the buyable types for use in the following tests
+  
+    >>> from Products.PloneGetPaid.interfaces import IGetPaidManagementOptions
+    >>> options = IGetPaidManagementOptions(self.portal)
+    >>> options.buyable_types = ['Document']
+    >>> options.donate_types = ['Document']
+    >>> options.shippable_types = ['Document']
+
+Here we set up the Credit cards accepted for payment:
+
+   >>> options.accepted_credit_cards = ["Visa"]
+
+Add a buyable document.
+
+    >>> browser.getLink('Home').click()
+    >>> browser.getLink('Make Buyable').click()
+    >>> browser.getControl('Product Code').value = 'PAY-ME'
+    >>> browser.getControl('Price').value = '42.17'
+    >>> browser.getControl('Activate').click()
+
+Add a PFG folder
+
+    >>> browser.getLink('Form Folder').click()
+    >>> browser.getControl('Title').value = 'somepfgform'
+    >>> browser.getControl('Mailer').selected = False
+    >>> browser.getControl('None').selected = True
+    >>> browser.getControl('Save').click()
+
+Lets remove the rest of the fields we are not interested in
+
+    >>> browser.getLink('Contents').click()
+    >>> browser.getControl('Mailer').selected = True
+    >>> browser.getControl('Your E-Mail Address').selected = True
+    >>> browser.getControl('Subject').selected = True
+    >>> browser.getControl('Comments').selected = True
+    >>> browser.getControl('Thank You').selected = True
+    >>> browser.getControl('Delete').click()
+
+Lets add the getpaid adapter with One Page Checkout method
+
+    >>> browser.getLink('Getpaid Adapter').click()
+    >>> browser.getControl('Title').value = 'agetpaidadapter'
+    >>> browser.getControl('One Page Checkout').getControl(value='One Page Checkout').selected = True
+    >>> browser.getControl('GPMakePaymentButton').value = 'Make Payment button'
+    >>> browser.getControl('Save').click()
+
+Let's check that our personal button name works
+
+    >>> 'Make Payment button' in browser.contents
+
+Let's do a checkout
+
+    >>> browser.getControl('Phone Number').value = '555555555'
+    >>> browser.getControl('Zip/Postal Code').value = '5000'
+    >>> browser.getControl('City').value = 'Cordoba'
+    >>> browser.getControl('Address 1').value = 'address'
+    >>> browser.getControl('Card Holder Name').value = 'Card holder dude'
+    >>> browser.getControl('Credit Card Verfication Number').value = '123'
+    >>> browser.getControl(name='cc_expiration_year').value = '2011'
+    >>> browser.getControl(name='cc_expiration_month').value = '08'
+    >>> browser.getControl(name='cc_expiration_day').value = '15'
+    >>> browser.getControl('Credit Card Number').value = '104'
+    >>> browser.getControl('Make Payment button').click()
+
+And now, lets see if it is polite and thanks us
+    
+    >>> 'Thank you' in browser.contents
+
+
+
+Finished verification.

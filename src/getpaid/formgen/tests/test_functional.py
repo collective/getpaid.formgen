@@ -1,54 +1,47 @@
-"""getpaid.formgen functional doctests.  This module collects all *.txt
-files in the tests directory and runs them. (stolen from PloneGetPaid (stolen from Plone))
+"""This is a a functional doctest test. It uses PloneTestCase and doctest
+syntax. In the test itself, we use zope.testbrowser to test end-to-end
+functionality, including the UI.
+
+One important thing to note: zope.testbrowser is not JavaScript aware! For
+that, you need a real browser. Look at zope.testbrowser.real and Selenium
+if you require "real" browser testing.
 """
 
 import os, sys
 
-import glob
-import doctest
+if __name__ == '__main__':
+    execfile(os.path.join(sys.path[0], 'framework.py'))
+
 import unittest
-from Globals import package_home
-from Products.PloneTestCase import PloneTestCase
+import doctest
 from Testing.ZopeTestCase import FunctionalDocFileSuite as Suite
+from Products.CMFCore.utils import getToolByName
+from Products.CMFPlone.utils import _createObjectByType
+from getpaid.formgen.tests import base_test_case
+from getpaid.formgen.config import PROJECTNAME
 
-from getpaid.formgen.config import GLOBALS
+from Products.PloneTestCase.PloneTestCase import PloneTestCase
+from Products.PloneTestCase.PloneTestCase import setupPloneSite
+from Products.PloneTestCase.PloneTestCase import FunctionalTestCase
 
-# Load products
-from getpaid.formgen.tests.base import GetPaidFormGenFunctionalTestCase
+setupPloneSite(products=base_test_case.PRODUCTS)
 
-REQUIRE_TESTBROWSER = []
+from getpaid.formgen.tests.util import list_acceptance_doctests
 
-OPTIONFLAGS = (doctest.REPORT_ONLY_FIRST_FAILURE |
-               doctest.ELLIPSIS |
-               doctest.NORMALIZE_WHITESPACE)
-
-def list_doctests():
-    home = package_home(GLOBALS)
-    return [filename for filename in
-            glob.glob(os.path.sep.join([home, 'tests', '*.txt']))]
-
-def list_nontestbrowser_tests():
-    return [filename for filename in list_doctests()
-            if os.path.basename(filename) not in REQUIRE_TESTBROWSER]
+class AcceptanceFunctionalTest(FunctionalTestCase):
+    def afterSetUp(self):
+        pass
 
 def test_suite():
+    """This sets up a test suite that actually runs the tests in the class
+    above
+    """
+    suite = unittest.TestSuite()
+    filenames = list_acceptance_doctests()
 
-    # BBB: We can obviously remove this when testbrowser is Plone
-    #      mainstream, read: with Five 1.4.
-    try:
-        import Products.Five.testbrowser
-    except ImportError:
-        print >> sys.stderr, ("WARNING: testbrowser not found - you probably"
-                              "need to add Five 1.4 to the Products folder. "
-                              "testbrowser tests skipped")
-        filenames = list_nontestbrowser_tests()
-    else:
-        filenames = list_doctests()
+    for docfile in filenames:     
+        suite.addTest(Suite(docfile,
+                            package='getpaid.formgen.tests',
+                            test_class=AcceptanceFunctionalTest))
 
-    return unittest.TestSuite(
-        [Suite(os.path.basename(filename),
-               optionflags=OPTIONFLAGS,
-               package='getpaid.formgen.tests',
-               test_class=GetPaidFormGenFunctionalTestCase)
-         for filename in filenames]
-        )
+    return suite

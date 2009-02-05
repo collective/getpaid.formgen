@@ -28,7 +28,7 @@ def install(self):
                 "profile-getpaid.formgen:default",
                 purge_old=False)
     else:
-        raise ValueError(u"Plone >= 3.0 required.")
+        pass #raise ValueError(u"Plone >= 3.0 required.")
     print >> out, "Installed types and added to portal_factory via portal_setup"
     
     
