@@ -5,6 +5,7 @@ Action for PloneFormGen that helps you getpaid.
 __author__  = 'Daniel Holth <dholth@fastmail.fm>'
 __docformat__ = 'plaintext'
 
+import pprint
 import logging
 
 from AccessControl import ClassSecurityInfo
@@ -46,8 +47,8 @@ logger = logging.getLogger("PloneFormGen")
 
 schema = FormAdapterSchema.copy() + Schema((
     StringField('GPFieldsetType',
-                searchable=0,
-                required=1,
+                searchable=False,
+                required=False,
                 mutator='setGPTemplate',
                 widget=SelectionWidget(
                        label='Get Paid Form Template',
@@ -162,13 +163,13 @@ class GetpaidPFGAdapter(FormActionAdapter):
                 if 'required' in attribute_list:
                     obj.fgField.required = True
 
-        self.success_callback = self._one_page_checkout_success
+        self.success_callback = "_one_page_checkout_success"
                     
     def _multi_item_cart_add_success(self):
         pass
     
     def _multi_item_cart_add_init(self):
-        self.success_callback = self._multi_item_cart_add_success
+        self.success_callback = "_multi_item_cart_add_success"
     
     def setGPTemplate(self, template):
         """
@@ -228,13 +229,18 @@ class GetpaidPFGAdapter(FormActionAdapter):
             available_template_list.add( field, field )
         return available_template_list
         
-    def buildPayablesList(self):
+    def buildPayablesList(self):    
         portal_catalog = getToolByName(self, 'portal_catalog')
+        portal_url = getToolByName(self, 'portal_url')
+        portal_path = '/'.join(portal_url.getPortalObject().getPhysicalPath())
         buyables = portal_catalog.searchResults(
             dict(object_provides='Products.PloneGetPaid.interfaces.IPayableMarker',
-                 path='/Plone/'))
+                 path=portal_path))
         stuff = [('', '')]
-        stuff.extend((p.getPath(), p.getObject().title) for p in (b for b in buyables))
+        for b in buyables:
+            o = b.getObject()
+            payable = GPInterfaces.IPayable(o)    
+            stuff.append((b.getPath(), o.title + " : %0.2f" % (payable.price)))
         display = DisplayList(stuff)        
         return display
     
@@ -250,6 +256,8 @@ class GetpaidPFGAdapter(FormActionAdapter):
 ##                 zope.component.getMultiAdapter( (cart, b), 
 ##                     getpaid.core.interfaces.ILineItemFactory )
 ##             lineitem = item_factory.create(0)
+        # Now add the selected items to the cart with appropriate quantity
+        # ...
         return {'name_on_card':'Invalid name'}
     
 registerATCT(GetpaidPFGAdapter, PROJECTNAME)
