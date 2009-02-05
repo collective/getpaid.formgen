@@ -229,11 +229,13 @@ class GetpaidPFGAdapter(FormActionAdapter):
         return available_template_list
         
     def buildPayablesList(self):
+        portal_catalog = getToolByName(self, 'portal_catalog')
         buyables = portal_catalog.searchResults(
-            dict(object_provides='Products.PloneGetPaid.interfaces.IBuyableMarker',
+            dict(object_provides='Products.PloneGetPaid.interfaces.IPayableMarker',
                  path='/Plone/'))
-        display = DisplayList()
-        [display.add(p, p) for p in (b.getPath() for b in buyables)]
+        stuff = [('', '')]
+        stuff.extend((p.getPath(), p.getObject().title) for p in (b for b in buyables))
+        display = DisplayList(stuff)        
         return display
     
     def onSuccess(self, fields, REQUEST=None):
