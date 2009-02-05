@@ -1,0 +1,3 @@
+#
+
+from getpaidpfgadapter import GetpaidPFGAdapter

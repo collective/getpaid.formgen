@@ -1,0 +1,9 @@
+Changelog for getpaid.formgen
+
+    (name of developer listed in brackets)
+
+getpaid.formgen - 0.1 Unreleased
+
+    - Initial package structure.
+      [zopeskel]
+

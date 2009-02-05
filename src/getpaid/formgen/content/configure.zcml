@@ -1,0 +1,12 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:five="http://namespaces.zope.org/five"
+    i18n_domain="getpaid.formgen">
+
+    <!-- configure your content components here -->
+
+    <class class=".GetpaidPFGAdapter" />
+
+    <!-- -*- extra stuff goes here -*- -->
+
+</configure>
