@@ -5,8 +5,8 @@ Action for PloneFormGen that helps you getpaid.
 __author__  = 'Daniel Holth <dholth@fastmail.fm>'
 __docformat__ = 'plaintext'
 
-import pprint
 import logging
+from DateTime import DateTime
 
 from AccessControl import ClassSecurityInfo
 from Acquisition import aq_parent
@@ -32,17 +32,17 @@ from Products.DataGridField.DataGridField import FixedRow
 
 from Products.PloneFormGen.interfaces import IPloneFormGenField
 
+from Products.PloneGetPaid.browser.checkout import CreateTransientOrder
 from getpaid.core import interfaces as GPInterfaces
 import getpaid.core
 
+from Products.PloneFormGen import HAS_PLONE30
 from Products.PloneFormGen.content.actionAdapter import \
     FormActionAdapter, FormAdapterSchema
 
-from getpaid.formgen import HAS_PLONE30
 from getpaid.formgen.config import PROJECTNAME
 from getpaid.formgen import GPFGMessageFactory as _
 from getpaid.formgen.checkout import MakeCheckoutProcess
-
 
 logger = logging.getLogger("PloneFormGen")
 
@@ -85,7 +85,8 @@ schema = FormAdapterSchema.copy() + Schema((
 ))
 
 
-class GetpaidPFGAdapter(FormActionAdapter):
+
+class GetpaidPFGAdapter( FormActionAdapter ):
     """
     Do PloneGetPaid stuff upon PFG submit.
     """
@@ -144,10 +145,10 @@ class GetpaidPFGAdapter(FormActionAdapter):
         FormActionAdapter.initializeArchetype(self, **kwargs)
         self._fieldsForGPType = {}
 
-    def _one_page_checkout_success( self ):
+    def _one_page_checkout_success(self):
         pass
     
-    def _one_page_checkout_init( self ):
+    def _one_page_checkout_init(self):
         """
         We add all the required fields for getpaid checkout
         """
@@ -229,7 +230,8 @@ class GetpaidPFGAdapter(FormActionAdapter):
         for field in self.available_templates.keys():
             available_template_list.add( field, field )
         return available_template_list
-        
+
+
     def buildPayablesList(self):
         portal_catalog = getToolByName(self, 'portal_catalog')
         portal_url = getToolByName(self, 'portal_url')
@@ -244,7 +246,8 @@ class GetpaidPFGAdapter(FormActionAdapter):
             stuff.append((b.getPath(), o.title + " : %0.2f" % (payable.price)))
         display = DisplayList(stuff)        
         return display
-    
+
+
     def onSuccess(self, fields, REQUEST=None):
         scu = zope.component.getUtility(getpaid.core.interfaces.IShoppingCartUtility)
         cart = scu.get(self, create=True)
@@ -268,7 +271,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
                     pass
                 except ValueError, e:
                     pass
-    
+   
         # checkout_process = MakeCheckoutProcess( context, adapters ) #TODO: Get context and adapters
         # #TODO: create a temp cart
         # result = checkout_process(temp_cart)
