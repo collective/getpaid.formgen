@@ -5,10 +5,8 @@ Action for PloneFormGen that helps you getpaid.
 __author__  = 'Daniel Holth <dholth@fastmail.fm>'
 __docformat__ = 'plaintext'
 
-# Python imports
 import logging
 
-# Zope imports
 from AccessControl import ClassSecurityInfo
 from Acquisition import aq_parent
 from zope.interface import classImplements, providedBy
@@ -17,7 +15,6 @@ from zope.formlib import form
 from DateTime import DateTime
 import zope.component
 
-# Plone imports
 from Products.Archetypes import atapi
 from Products.Archetypes.public import StringField, SelectionWidget, \
     DisplayList, Schema, ManagedSchema
@@ -27,23 +24,19 @@ from Products.CMFCore.permissions import View, ModifyPortalContent
 from Products.CMFCore.utils import getToolByName
 from Products.validation.config import validation
 
-# DataGridField
 from Products.DataGridField import DataGridField, DataGridWidget
 from Products.DataGridField.SelectColumn import SelectColumn
 from Products.DataGridField.FixedColumn import FixedColumn
 from Products.DataGridField.DataGridField import FixedRow
 
-# Interfaces
 from Products.PloneFormGen.interfaces import IPloneFormGenField
 
-# GetPaid imports
 from getpaid.core import interfaces as GPInterfaces
 
-# PloneFormGen imports
-from Products.PloneFormGen import HAS_PLONE30
 from Products.PloneFormGen.content.actionAdapter import \
     FormActionAdapter, FormAdapterSchema
 
+from getpaid.formgen import HAS_PLONE30
 from getpaid.formgen.config import PROJECTNAME
 from getpaid.formgen import GPFGMessageFactory as _
 
@@ -62,12 +55,35 @@ schema = FormAdapterSchema.copy() + Schema((
                        label_msgid = "label_getpaid_template",
                        ),
                 vocabulary='getAvailableGetPaidForms'
-                )
+                ),
+                
+    DataGridField('payablesMap',
+         searchable=0,
+         required=1,
+         schemata='payables mapping',
+         columns=('field_path', 'form_field', 'payable_path'),
+         fixed_rows = "generateFormFieldRows",
+         allow_delete = True,
+         allow_insert = True,
+         allow_reorder = False,
+         widget = DataGridWidget(
+             label='Form fields to Payables mapping',
+             label_msgid = "label_getpaid_field_map",
+             description="""Associate the paths of form fields with payables.""",
+             description_msgid = 'help_getpaid_field_map',
+             columns= {
+                 "field_path" : FixedColumn("Form Fields (path)", visible=False),
+                 "form_field" : FixedColumn("Form Fields"),
+                 "payable_path" : SelectColumn("Payables", 
+                                           vocabulary="buildPayablesList")
+             },
+             i18n_domain = "getpaid.formgen",
+             ),
+        )
 ))
 
 
-
-class GetpaidPFGAdapter( FormActionAdapter ):
+class GetpaidPFGAdapter(FormActionAdapter):
     """
     Do PloneGetPaid stuff upon PFG submit.
     """
@@ -146,25 +162,62 @@ class GetpaidPFGAdapter( FormActionAdapter ):
                 if 'required' in attribute_list:
                     obj.fgField.required = True
 
-                
-
         self.success_callback = self._one_page_checkout_success
                     
-    def _multi_item_cart_add_success( self ):
+    def _multi_item_cart_add_success(self):
         pass
     
-    def _multi_item_cart_add_init( self ):
+    def _multi_item_cart_add_init(self):
         self.success_callback = self._multi_item_cart_add_success
     
-    def setGPTemplate( self, template ):
+    def setGPTemplate(self, template):
         """
         This will call the initialization methods for each template
         """
         if template:
             getattr(self,self.available_templates[template])()
         
+    security.declareProtected(ModifyPortalContent, 'generateFormFieldRows')
+    def generateFormFieldRows(self):
+        """This method returns a list of rows for the field mapping
+           ui. One row is returned for each field in the form folder.
+        """
+        fixedRows = []
+        
+        for formFieldTitle, formFieldPath in self._getIPloneFormGenFieldsPathTitlePair():
+            logger.debug("creating mapper row for %s" % formFieldTitle)
+            fixedRows.append(FixedRow(keyColumn="form_field",
+                                      initialData={"form_field" : formFieldTitle, 
+                                                   "field_path" : formFieldPath,
+                                                   "sf_field" : ""}))
+        return fixedRows
 
-    def getAvailableGetPaidForms( self ):
+    def _getIPloneFormGenFieldsPathTitlePair(self):
+        formFolder = aq_parent(self)
+        formFolderPath = formFolder.getPhysicalPath()
+        formFieldTitles = []
+        
+        for formField in formFolder.objectIds():
+            fieldObj = getattr(formFolder, formField)
+            if IPloneFormGenField.providedBy(fieldObj):
+                formFieldTitles.append((fieldObj.Title().strip(),
+                                        ",".join(fieldObj.getPhysicalPath()[len(formFolderPath):])))
+        
+            # can we also inspect further down the chain
+            if fieldObj.isPrincipiaFolderish:
+                # since nested folders only go 1 level deep
+                # a non-recursive approach approach will work here
+                for subFormField in fieldObj.objectIds():
+                    subFieldObj = getattr(fieldObj, subFormField)
+                    if IPloneFormGenField.providedBy(subFieldObj):
+                        # we append a list in this case
+                        formFieldTitles.append(("%s --> %s" % (fieldObj.Title().strip(),
+                                                               subFieldObj.Title().strip()),
+                                                ",".join(subFieldObj.getPhysicalPath()[len(formFolderPath):])))
+        
+        return formFieldTitles
+
+    def getAvailableGetPaidForms(self):
         """
         We will provide a 'vocabulary' with the predefined form templates available
         It is not possible for the moment to do any kind of form without restriction
@@ -175,6 +228,13 @@ class GetpaidPFGAdapter( FormActionAdapter ):
             available_template_list.add( field, field )
         return available_template_list
         
+    def buildPayablesList(self):
+        buyables = portal_catalog.searchResults(
+            dict(object_provides='Products.PloneGetPaid.interfaces.IBuyableMarker',
+                 path='/Plone/'))
+        display = DisplayList()
+        [display.add(p, p) for p in (b.getPath() for b in buyables)]
+        return display
     
     def onSuccess(self, fields, REQUEST=None):
 ##         scu = zope.component.getUtility(getpaid.core.interfaces.IShoppingCartUtility)
@@ -188,7 +248,7 @@ class GetpaidPFGAdapter( FormActionAdapter ):
 ##                 zope.component.getMultiAdapter( (cart, b), 
 ##                     getpaid.core.interfaces.ILineItemFactory )
 ##             lineitem = item_factory.create(0)
-        return {'name_on_card':'Because you suck'}
+        return {'name_on_card':'Invalid name'}
     
 registerATCT(GetpaidPFGAdapter, PROJECTNAME)
 
