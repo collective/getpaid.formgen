@@ -309,13 +309,13 @@ class GetpaidPFGAdapter( FormActionAdapter ):
             self.invokeFactory('FieldsetFolder',frameset)
             frame_folder = self[frameset]
             frame_folder.setTitle(frameset)
-            ordered_fields = [(fld,self.checkout_fields[frameset][2]) for fld in self.checkout_fields[frameset].keys()]
+            ordered_fields = [(fld,self.checkout_fields[frameset][0][fld][2]) for fld in self.checkout_fields[frameset][0].keys()]
             ordered_fields.sort(order_fields)
             ordered_fields = [ordered_key[0] for ordered_key in ordered_fields]
             
             for field in ordered_fields:
                 if field not in oids:
-                    aField = self.checkout_fields[frameset][field]
+                    aField = self.checkout_fields[frameset][0][field]
                     frame_folder.invokeFactory(aField[0],field)
                     obj = frame_folder[field]
                     obj.fgField.__name__ = field
