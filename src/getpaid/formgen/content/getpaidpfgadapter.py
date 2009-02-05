@@ -155,8 +155,9 @@ class GetpaidPFGAdapter(FormActionAdapter):
 
     available_templates = {'One Page Checkout': '_one_page_checkout_init',
                            'Multi item cart add': '_multi_item_cart_add_init' }
-
+    blocking_templates = ['One Page Checkout']
     success_callback = None
+    run_other_adapters = False
     
     checkout_fields = {'User Data':[{
                        
@@ -310,7 +311,35 @@ class GetpaidPFGAdapter(FormActionAdapter):
         if result:
             return {FORM_ERROR_MARKER:'%s' % result}
         else:
+            self.run_other_adapters = True
+            for adapter in self.aq_parent.getRawActionAdapter():
+                if adapter != self.getId():
+                    actionAdapter = getattr(self.aq_parent.aq_explicit, adapter, None)
+                    # Now, see if we should execute it.
+                    # Check to see if execCondition exists and has contents
+                    if safe_hasattr(actionAdapter, 'execCondition') and \
+                        len(actionAdapter.getRawExecCondition()):
+                        # evaluate the execCondition.
+                        # create a context for expression evaluation
+                        context = getExprContext(self, actionAdapter)
+                        doit = actionAdapter.getExecCondition(expression_context=context)
+                    else:
+                        # no reason not to go ahead
+                        doit = True
+
+                    if doit:
+                        if actionAdapter:
+                            result = actionAdapter.onSuccess(fields, REQUEST=REQUEST)
+                        else:
+                            result = None
+
+                    if type(result) is type({}) and len(result):
+                        # return the dict, which hopefully uses
+                        # field ids or FORM_ERROR_MARKER for keys
+                        return result
+            self.run_other_adapters = False
             REQUEST.response.redirect(self.getNextURL(checkout_process.order, portal))
+
             
         
     #--------------------------------------------------------------------------#
@@ -377,10 +406,24 @@ class GetpaidPFGAdapter(FormActionAdapter):
         """
         This sets the template for each kind of form
         """
-        self.fieldsetType = template
         if template:
-            self.fieldsetType = template
+            self.getField('GPFieldsetType').set(self,template)
             getattr(self,self.available_templates[template])()
+        if self.getId() in self.aq_parent.actionAdapter:
+            if self.aq_parent.actionAdapter[0] != self.getId():
+                adapter_title = self.aq_parent.actionAdapter.pop(self.aq_parent.actionAdapter.index(self.getId()))
+                self.aq_parent.actionAdapter.insert(0,adapter_title)
+        if template in self.blocking_templates:
+            for adapter in self.aq_parent.actionAdapter:
+                if adapter != self.getId():
+                    actionAdapter = getattr(self.aq_parent.aq_explicit, adapter, None)
+                    if actionAdapter:
+                        if safe_hasattr(actionAdapter, 'execCondition'):
+                            try:
+                                actionAdapter.setExecCondition(Expression("python: here.aq_parent['%s'].run_other_adapters" % self.getId()))
+                            except:
+                            actionAdapter.setExecCondition(Expression(""))
+
 
     def setGPSubmit(self, submit_legend):
         """
