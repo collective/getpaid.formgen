@@ -1,8 +1,5 @@
 """ 
 Action for PloneFormGen that helps you getpaid.
-
-Adapted from an adapter for PloneFormGen that saves submitted form
-data to Salesforce.com
 """
 
 __author__  = 'Daniel Holth <dholth@fastmail.fm>'
@@ -54,8 +51,6 @@ import getpaid.core
 
 logger = logging.getLogger("PloneFormGen")
 
-# validation.register(validators.CircularDependencyValidator('CircularDependencyValidator'))
-
 schema = FormAdapterSchema.copy() + Schema((
     StringField('GPFieldsetType',
                 searchable=0,
@@ -68,80 +63,7 @@ schema = FormAdapterSchema.copy() + Schema((
                        ),
                 vocabulary='getAvailableGetPaidForms'
                 )
-    
 ))
-
-
-    # StringField('SFObjectType',
-    #     searchable=0,
-    #     required=1,
-    #     default=u'Contact',
-    #     mutator='setSFObjectType',
-    #     widget=SelectionWidget(
-    #         label='Salesforce Object Type',
-    #         i18n_domain = "salesforcepfgadapter",
-    #         label_msgid = "label_salesforce_type_text",
-    #         ),
-    #     vocabulary='displaySFObjectTypes',
-    #     ),
-    # DataGridField('fieldMap',
-    #      searchable=0,
-    #      required=1,
-    #      schemata='field mapping',
-    #      columns=('field_path', 'form_field', 'sf_field'),
-    #      fixed_rows = "generateFormFieldRows",
-    #      allow_delete = False,
-    #      allow_insert = False,
-    #      allow_reorder = False,
-    #      widget = DataGridWidget(
-    #          label='Form fields to Salesforce fields mapping',
-    #          label_msgid = "label_salesforce_field_map",
-    #          description="""The following Form Fields are available\
-    #              within your Form Folder. Choose the appropriate \
-    #              Salesforce Field for each Form Field.""",
-    #          description_msgid = 'help_salesforce_field_map',
-    #          columns= {
-    #              "field_path" : FixedColumn("Form Fields (path)", visible=False),
-    #              "form_field" : FixedColumn("Form Fields"),
-    #              "sf_field" : SelectColumn("Salesforce Fields",
-    #                                        vocabulary="buildSFFieldOptionList")
-    #          },
-    #          i18n_domain = "salesforcepfgadapter",
-    #          ),
-    #     ),
-    # DataGridField('dependencyMap',
-    #      searchable=0,
-    #      required=0,
-    #      schemata='field mapping',
-    #      columns=('adapter_name', 'adapter_id', 'sf_field'),
-    #      fixed_rows = "getLocalSFAdapters",
-    #      allow_delete = False,
-    #      allow_insert = False,
-    #      allow_reorder = False,
-    #      widget = DataGridWidget(
-    #          label='Configure Parent Adapters',
-    #          label_msgid = "label_salesforce_dependency_map",
-    #          description="""This form's other Salesforce Adapters are listed below. \
-    #             To relate the current adapter's Saleforce record to the Salesforce \
-    #             record created by another Salesforce Adapter, select the field that \
-    #             relates both records. Note: relationships are made from children \
-    #             back to parents.""",
-    #          description_msgid = 'help_salesforce_dependency_map',
-    #          columns= {
-    #              "adapter_name" : FixedColumn("Possible Parent Adapters"),
-    #              "adapter_id" : FixedColumn("Possible Parent Adapters (id)", visible=False),
-    #              "sf_field" : SelectColumn("Available Field IDs",
-    #                                        vocabulary="buildSFFieldOptionList")
-    #          },
-    #          i18n_domain = "salesforcepfgadapter",
-    #          ),
-    #      validators = ('CircularDependencyValidator',),
-    #      )
-
-
-# move 'field mapping' schemata before the inherited overrides schemata
-#schema = ManagedSchema(schema.copy().fields())
-# schema.moveSchemata('field mapping', -1)
 
 # IBillingAddressSchema = Schema((
 #     bill_name = schema.TextLine( title = _(u"Full Name"))
@@ -240,8 +162,3 @@ class GetpaidPFGAdapter( FormActionAdapter ):
     
 registerATCT(GetpaidPFGAdapter, PROJECTNAME)
 
-# try:
-#     from Products.Archetypes.interfaces import IMultiPageSchema
-#     classImplements(SalesforcePFGAdapter, IMultiPageSchema)
-# except ImportError:
-#     pass
