@@ -16,6 +16,7 @@ from zope.formlib import form
 from zope.event import notify
 import zope.component
 
+from AccessControl import getSecurityManager
 from Products.Archetypes import atapi
 from Products.Archetypes.public import StringField, SelectionWidget, \
     DisplayList, Schema, ManagedSchema
@@ -31,8 +32,6 @@ from Products.DataGridField.FixedColumn import FixedColumn
 from Products.DataGridField.DataGridField import FixedRow
 
 from Products.PloneFormGen.interfaces import IPloneFormGenField
-
-from Products.PloneGetPaid.browser.checkout import CreateTransientOrder
 from getpaid.core import interfaces as GPInterfaces
 import getpaid.core
 
@@ -42,7 +41,8 @@ from Products.PloneFormGen.content.actionAdapter import \
 
 from getpaid.formgen.config import PROJECTNAME
 from getpaid.formgen import GPFGMessageFactory as _
-from getpaid.formgen.checkout import MakeCheckoutProcess
+from zope.app import zapi
+from getpaid.formgen.content.checkout import MakePaymentProcess, CreateTransientOrder
 
 logger = logging.getLogger("PloneFormGen")
 
@@ -85,6 +85,19 @@ schema = FormAdapterSchema.copy() + Schema((
 ))
 
 
+class BillingInfo( getpaid.core.options.PropertyBag ):
+    title = "Billing Information"
+
+    def __init__(self, context):
+        # need a context to be able to get the current available credit
+        # cards. purge state afterwards
+        self.context = context
+
+    def __getstate__( self ):
+        # don't store persistently
+        raise RuntimeError("Storage Not Allowed")
+
+BillingInfo = BillingInfo.makeclass( getpaid.core.interfaces.IUserPaymentInformation )
 
 class GetpaidPFGAdapter( FormActionAdapter ):
     """
@@ -124,18 +137,22 @@ class GetpaidPFGAdapter( FormActionAdapter ):
 ##                              max_length = 4)
     ###################################################################
 
-    checkout_fields = {
+    checkout_fields = {'User Data':{
+                       
         'name':['FormStringField',{'title':u"Your Full Name"}],
         'phone_number':['FormStringField',{'title':u"Phone Number",
                                          'description':u"Only digits allowed - e.g. 3334445555 and not 333-444-5555"}],
         'email':['FormStringField',{'title':u"Email",
-                                  'description':u"Contact Information"}],
+                                  'description':u"Contact Information"}]
+        },
+                       'Billing Address Info':{
         'bill_first_line':['FormStringField',{'title':u"Address 1"}],
         'bill_second_line':['FormStringField',{'title':u"Address 1"}],
         'bill_city':['FormStringField',{'title':u"City"}],
-        'bill_postal_code':['FormStringField',{'title':u"Zip/Postal Code"}],
+        'bill_postal_code':['FormStringField',{'title':u"Zip/Postal Code"}]},
+                        'Credit Info':{
         'name_on_card':['FormStringField',{'title':u"Card Holder Name",
-                                         'description':u"Enter the full name, as it appears on the card. "}],
+                                         'description':u"Enter the full name, as it appears on the card. "}],}
         
                        }
     
@@ -145,30 +162,108 @@ class GetpaidPFGAdapter( FormActionAdapter ):
         FormActionAdapter.initializeArchetype(self, **kwargs)
         self._fieldsForGPType = {}
 
-    def _one_page_checkout_success(self):
-        pass
+    def getSchemaAdapters(self):
+        adapters = {}
+        portal = zapi.getSiteManager()
+        portal = getToolByName(portal,'portal_url').getPortalObject()
+        user = getSecurityManager().getUser()
+        formSchemas = component.getUtility(GPInterfaces.IFormSchemas)
+        #persistent sections
+        for section in ('contact_information', 'billing_address'):
+            interface = formSchemas.getInterface(section)
+            adapter = component.queryAdapter(user,interface)
+            if adapter is None:
+                adapter = formSchemas.getBagClass(section)()
+            adapters[interface]=adapter
+        #non persistent sections
+        adapters[formSchemas.getInterface('payment')] = formSchemas.getBagClass('payment')(portal)
+        return adapters
+
+    def _one_page_checkout_success(self, fields, REQUEST=None):
+        """
+        this process is quite like the regular one except it will use a disposable cart
+        """
+        portal = zapi.getSiteManager()
+        portal = getToolByName(portal,'portal_url').getPortalObject()
+        adapters = self.getSchemaAdapters()
+        shopping_cart = component.getUtility( GPInterfaces.IShoppingCartUtility ).get( portal, key="oneshot:bogus" )
+        checkout_process = MakePaymentProcess( portal, adapters ) #TODO: Get context and adapters
+        portal_catalog = getToolByName(self, 'portal_catalog')
+        form_payable = dict((p['field_path'], p['payable_path']) for p in self.payablesMap if p['payable_path'])
+        parent_node = self.getParentNode()
+        for field in fields:
+            if field.getId() in form_payable:
+                try:
+                    quantity = int(REQUEST.form.get(field.fgField.getName()))
+                    if quantity > 0:
+                        content = parent_node.restrictedTraverse(form_payable[field.getId()], None)                        
+                        if content is not None:
+                            try:
+                                item_factory = zope.component.getMultiAdapter((shopping_cart, content),
+                                    getpaid.core.interfaces.ILineItemFactory)
+                                item_factory.create(quantity)
+                            except zope.component.ComponentLookupError, e:
+                                import pdb ; pdb.set_trace()
+                except KeyError, e:
+                    pass
+                except ValueError, e:
+                    pass
+        result = checkout_process(shopping_cart)
+        
+        
     
     def _one_page_checkout_init(self):
         """
         We add all the required fields for getpaid checkout
+        TODO: Find a way to get ordered fields
         """
         oids = self.objectIds()
-        for field in self.checkout_fields:
-            if field not in oids:
-                aField = self.checkout_fields[field]
-                self.invokeFactory(aField[0],field)
-                obj = self[field]
-                obj.fgField.__name__ = field
-                attribute_list = aField[1]
-                for attr in attribute_list.keys():
-                    obj.getField(attr).set(obj,attribute_list[attr])
-                if 'required' in attribute_list:
-                    obj.fgField.required = True
+        for frameset in self.checkout_fields.keys():
+            self.invokeFactory('FieldsetFolder',frameset)
+            frame_folder = self[frameset]
+            frame_folder.setTitle(frameset)
+            for field in self.checkout_fields[frameset].keys():
+                if field not in oids:
+                    aField = self.checkout_fields[frameset][field]
+                    frame_folder.invokeFactory(aField[0],field)
+                    obj = frame_folder[field]
+                    obj.fgField.__name__ = field
+                    attribute_list = aField[1]
+                    for attr in attribute_list.keys():
+                        if hasattr(obj,"set%s" % attr.capitalize()):
+                            #A little dirty but apparently calling the method does more
+                            #than just setting the value (I will use my it's 2 AM card here)
+                            getattr(obj,"set%s" % attr.capitalize())(attribute_list[attr])
+                        else:
+                            obj.getField(attr).set(obj,attribute_list[attr])
+                    if 'required' in attribute_list:
+                        obj.fgField.required = True
 
         self.success_callback = "_one_page_checkout_success"
                     
-    def _multi_item_cart_add_success(self):
-        pass
+    def _multi_item_cart_add_success(self, fields, REQUEST=None):
+        scu = zope.component.getUtility(getpaid.core.interfaces.IShoppingCartUtility)
+        cart = scu.get(self, create=True)
+        portal_catalog = getToolByName(self, 'portal_catalog')
+        form_payable = dict((p['field_path'], p['payable_path']) for p in self.payablesMap if p['payable_path'])
+        parent_node = self.getParentNode()
+        for field in fields:
+            if field.getId() in form_payable:
+                try:
+                    quantity = int(REQUEST.form.get(field.fgField.getName()))
+                    if quantity > 0:
+                        content = parent_node.restrictedTraverse(form_payable[field.getId()], None)                        
+                        if content is not None:
+                            try:
+                                item_factory = zope.component.getMultiAdapter((cart, content),
+                                    getpaid.core.interfaces.ILineItemFactory)
+                                item_factory.create(quantity)
+                            except zope.component.ComponentLookupError, e:
+                                import pdb ; pdb.set_trace()
+                except KeyError, e:
+                    pass
+                except ValueError, e:
+                    pass
     
     def _multi_item_cart_add_init(self):
         self.success_callback = "_multi_item_cart_add_success"
@@ -249,32 +344,8 @@ class GetpaidPFGAdapter( FormActionAdapter ):
 
 
     def onSuccess(self, fields, REQUEST=None):
-        scu = zope.component.getUtility(getpaid.core.interfaces.IShoppingCartUtility)
-        cart = scu.get(self, create=True)
-        portal_catalog = getToolByName(self, 'portal_catalog')
-        form_payable = dict((p['field_path'], p['payable_path']) for p in self.payablesMap if p['payable_path'])
-        parent_node = self.getParentNode()
-        for field in fields:
-            if field.getId() in form_payable:
-                try:
-                    quantity = int(REQUEST.form.get(field.fgField.getName()))
-                    if quantity > 0:
-                        content = parent_node.restrictedTraverse(form_payable[field.getId()], None)                        
-                        if content is not None:
-                            try:
-                                item_factory = zope.component.getMultiAdapter((cart, content),
-                                    getpaid.core.interfaces.ILineItemFactory)
-                                item_factory.create(quantity)
-                            except zope.component.ComponentLookupError, e:
-                                import pdb ; pdb.set_trace()
-                except KeyError, e:
-                    pass
-                except ValueError, e:
-                    pass
-   
-        # checkout_process = MakeCheckoutProcess( context, adapters ) #TODO: Get context and adapters
-        # #TODO: create a temp cart
-        # result = checkout_process(temp_cart)
+        result = getattr(self,self.success_callback)(fields, REQUEST)
+        return result
         # # notify( ObjectCreatedEvent( order ) ) #Why did I put this here?
         # return {'name_on_card':'Invalid Name'}
     

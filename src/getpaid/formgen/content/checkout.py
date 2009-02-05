@@ -1,6 +1,6 @@
 #GetPaid imports
 from Products.PloneGetPaid.interfaces import IGetPaidManagementOptions, ICreateTransientOrder
-from getpaid.core import interfaces
+from getpaid.core import interfaces, options
 from getpaid.core.order import Order
 
 #Local imports
@@ -10,8 +10,12 @@ from getpaid.formgen.interfaces import IMakePaymentProcess
 from zope import interface, component
 from zope.app import zapi
 
+#Plone imports
+from Products.CMFCore.utils import getToolByName
+
 #Other imports
 from cPickle import loads, dumps
+from AccessControl import getSecurityManager
 
 class CreateTransientOrder( object ):
     """
@@ -19,11 +23,12 @@ class CreateTransientOrder( object ):
     """
     interface.implements(ICreateTransientOrder)
 
-    def __call__( self, shopping_cart=None ):
+    def __call__( self, adapters, shopping_cart=None ):
         order = Order()
 
         portal = zapi.getSiteManager()
-        if soppping_cart is None:
+        portal = getToolByName(portal,'portal_url').getPortalObject()
+        if shopping_cart is None:
             """
             This deservers a bit of explanation, when using the formgen adapter
             for 'disposable' carts (this means that we don't use the site's
@@ -36,7 +41,7 @@ class CreateTransientOrder( object ):
 
         order.shopping_cart = shopping_cart
 
-        for section in ('contact_information','billing_address','shipping_address'):
+        for section in ('contact_information','billing_address'):
             interface = formSchemas.getInterface(section)
             bag = formSchemas.getBagClass(section).frominstance(adapters[interface])
             setattr(order,section,bag)
@@ -59,30 +64,33 @@ class MakePaymentProcess( object ):
         processor_name = manage_options.payment_processor
         if not processor_name:
             raise RuntimeError( "No Payment Processor Specified" )
+        self.processor_name = processor_name
         self.processor = component.getAdapter( context,
                                                interfaces.IPaymentProcessor,
                                                processor_name )
         self.adapters = adapters
         self.order = CreateTransientOrder()
+        self.context = context
         
     def __call__( self, oneshot=None ):
         """
         If called as oneshot it will not use the site's cart, instead oneshot
         should be the cart to use
         """
-        adapters = self.wizard.data_manager.adapters
 
         shopping_cart = oneshot
         if oneshot is None:
-            portal = zapi.getSiteManager()
-            shopping_cart = component.getUtility( interfaces.IShoppingCartUtility ).get( portal )
+            #If this is not to be a disposable cart transaction we get the cart as we should.
+            #NOTICE: This has not been tested since there is no process currently that uses it
+            shopping_cart = component.getUtility( interfaces.IShoppingCartUtility ).get( self.context )
             shopping_cart = loads( dumps( shopping_cart ) )
 
-        order = self.order( shopping_cart )
-        order.processor_id = processor_name
+        order = self.order( self.adapters, shopping_cart )
+        order.processor_id = self.processor_name
         order.finance_workflow.fireTransition( "create" )
         
         # extract data to our adapters
+        formSchemas = component.getUtility(interfaces.IFormSchemas)
         result = self.processor.authorize( order, self.adapters[formSchemas.getInterface('payment')] )
         if result is interfaces.keys.results_async:
             # shouldn't ever happen, on async processors we're already directed to the third party
@@ -98,4 +106,5 @@ class MakePaymentProcess( object ):
             return None
         else:
             order.finance_workflow.fireTransition('reviewing-declined')
-            return = result
+            return  result
+
