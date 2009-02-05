@@ -6,27 +6,19 @@ __author__  = 'Daniel Holth <dholth@fastmail.fm>'
 __docformat__ = 'plaintext'
 
 import logging
-from DateTime import DateTime
 
 from AccessControl import ClassSecurityInfo
 from Acquisition import aq_parent
-from zope.interface import classImplements, providedBy
 from zope import component
-from zope.formlib import form
-from zope.event import notify
 import zope.component
 
 from AccessControl import getSecurityManager
 from Products.Archetypes import atapi
 from Products.Archetypes.public import StringField, SelectionWidget, \
-    DisplayList, Schema, ManagedSchema, StringWidget
+    DisplayList, Schema, StringWidget
 from Products.ATContentTypes.content.schemata import finalizeATCTSchema
-from Products.ATContentTypes.content.base import registerATCT
-from Products.CMFCore.permissions import View, ModifyPortalContent
+from Products.CMFCore.permissions import ModifyPortalContent
 from Products.CMFCore.utils import getToolByName
-from Products.validation.config import validation
-from Products.CMFCore.Expression import Expression, getExprContext
-from Products.CMFPlone.utils import safe_hasattr
 
 from Products.DataGridField import DataGridField, DataGridWidget
 from Products.DataGridField.SelectColumn import SelectColumn
@@ -37,15 +29,13 @@ from Products.PloneFormGen.interfaces import IPloneFormGenField
 from getpaid.core import interfaces as GPInterfaces
 import getpaid.core
 
-from Products.PloneFormGen import HAS_PLONE30
 from Products.PloneFormGen.content.actionAdapter import \
     FormActionAdapter, FormAdapterSchema
 from Products.PloneFormGen.config import FORM_ERROR_MARKER
 
 from getpaid.formgen.config import PROJECTNAME
-from getpaid.formgen import GPFGMessageFactory as _
 from zope.app import zapi
-from getpaid.formgen.content.checkout import MakePaymentProcess, CreateTransientOrder
+from getpaid.formgen.content.checkout import MakePaymentProcess
 from Products.PloneGetPaid.interfaces import IGetPaidManagementOptions
 
 logger = logging.getLogger("PloneFormGen")
@@ -152,9 +142,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
 
     available_templates = {'One Page Checkout': '_one_page_checkout_init',
                            'Multi item cart add': '_multi_item_cart_add_init' }
-    blocking_templates = ['One Page Checkout']
     success_callback = None
-    run_other_adapters = False
     
     checkout_fields = {'User Data':[{
                        
@@ -306,36 +294,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
         result = checkout_process(shopping_cart)
         if result:
             return {FORM_ERROR_MARKER:'%s' % result}
-        else:
-            self.run_other_adapters = True
-            for adapter in self.aq_parent.getRawActionAdapter():
-                if adapter != self.getId():
-                    actionAdapter = getattr(self.aq_parent.aq_explicit, adapter, None)
-                    # Now, see if we should execute it.
-                    # Check to see if execCondition exists and has contents
-                    if safe_hasattr(actionAdapter, 'execCondition') and \
-                        len(actionAdapter.getRawExecCondition()):
-                        # evaluate the execCondition.
-                        # create a context for expression evaluation
-                        context = getExprContext(self, actionAdapter)
-                        doit = actionAdapter.getExecCondition(expression_context=context)
-                    else:
-                        # no reason not to go ahead
-                        doit = True
-
-                    if doit:
-                        if actionAdapter:
-                            result = actionAdapter.onSuccess(fields, REQUEST=REQUEST)
-                        else:
-                            result = None
-
-                    if type(result) is type({}) and len(result):
-                        # return the dict, which hopefully uses
-                        # field ids or FORM_ERROR_MARKER for keys
-                        return result
-            self.run_other_adapters = False
-            REQUEST.response.redirect(self.getNextURL(checkout_process.order, portal))
-
+        REQUEST.response.redirect(self.getNextURL(checkout_process.order, portal))
             
         
     #--------------------------------------------------------------------------#
@@ -409,17 +368,6 @@ class GetpaidPFGAdapter(FormActionAdapter):
             if self.aq_parent.actionAdapter[0] != self.getId():
                 adapter_title = self.aq_parent.actionAdapter.pop(self.aq_parent.actionAdapter.index(self.getId()))
                 self.aq_parent.actionAdapter.insert(0,adapter_title)
-        if template in self.blocking_templates:
-            for adapter in self.aq_parent.actionAdapter:
-                if adapter != self.getId():
-                    actionAdapter = getattr(self.aq_parent.aq_explicit, adapter, None)
-                    if actionAdapter:
-                        if safe_hasattr(actionAdapter, 'execCondition'):
-                            try:
-                                actionAdapter.setExecCondition(Expression("python: here.aq_parent['%s'].run_other_adapters" % self.getId()))
-                            except:
-                                actionAdapter.setExecCondition(Expression(""))
-
 
     def setGPSubmit(self, submit_legend):
         """
