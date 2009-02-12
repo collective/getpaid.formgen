@@ -9,6 +9,7 @@ import logging
 
 from AccessControl import ClassSecurityInfo
 from Acquisition import aq_parent
+from zope.interface import providedBy
 from zope import component
 import zope.component
 
@@ -36,7 +37,7 @@ from Products.PloneFormGen.config import FORM_ERROR_MARKER
 from getpaid.formgen.config import PROJECTNAME
 from zope.app import zapi
 from getpaid.formgen.content.checkout import MakePaymentProcess
-from Products.PloneGetPaid.interfaces import IGetPaidManagementOptions
+from Products.PloneGetPaid.interfaces import IGetPaidManagementOptions, IVariableAmountDonatableMarker
 
 logger = logging.getLogger("PloneFormGen")
 
@@ -261,18 +262,25 @@ class GetpaidPFGAdapter(FormActionAdapter):
         for field in fields:
             if field.getId() in form_payable:
                 try:
-                    quantity = int(REQUEST.form.get(field.fgField.getName()))
-                    if quantity > 0:
-                        has_products += 1
-                        content = parent_node.restrictedTraverse(form_payable[field.getId()], None)                        
-                        if content is not None:
+
+                    content = parent_node.restrictedTraverse(form_payable[field.getId()], None)                        
+
+                    if content is not None:
+
+                        if IVariableAmountDonatableMarker.providedBy(content):
+                            arg = float(REQUEST.form.get(field.fgField.getName()))
+                        else:
+                            arg = int(REQUEST.form.get(field.fgField.getName()))
+
+                        if arg > 0:
+                            has_products += 1
                             try:
                                 item_factory = zope.component.getMultiAdapter((shopping_cart, content),
                                     getpaid.core.interfaces.ILineItemFactory)
-                                item_factory.create(quantity)
+                                item_factory.create(arg)
                             except zope.component.ComponentLookupError, e:
                                 pass
-                    elif quantity < 0 :
+                    elif arg < 0 :
                         error_fields[field.getId()] = "The value for this field is not allowed"
                 except KeyError, e:
                     pass
@@ -314,14 +322,19 @@ class GetpaidPFGAdapter(FormActionAdapter):
         for field in fields:
             if field.getId() in form_payable:
                 try:
-                    quantity = int(REQUEST.form.get(field.fgField.getName()))
-                    if quantity > 0:
-                        content = parent_node.restrictedTraverse(form_payable[field.getId()], None)
-                        if content is not None:
+                    content = parent_node.restrictedTraverse(form_payable[field.getId()], None)
+
+                    if content is not None:
+                        if IVariableAmountDonatableMarker.providedBy(content):
+                            arg = float(REQUEST.form.get(field.fgField.getName()))
+                        else:
+                            arg = int(REQUEST.form.get(field.fgField.getName()))
+
+                        if arg > 0:
                             try:
                                 item_factory = zope.component.getMultiAdapter((cart, content),
                                     getpaid.core.interfaces.ILineItemFactory)
-                                item_factory.create(quantity)
+                                item_factory.create(arg)
                             except zope.component.ComponentLookupError, e:
                                 pass
                 except KeyError, e:
@@ -394,7 +407,10 @@ class GetpaidPFGAdapter(FormActionAdapter):
                 content = parent_node.restrictedTraverse(fields['payable_path'], None)
                 
                 payable = GPInterfaces.IPayable(content)    
-                title = content.title + " : $%0.2f" % (payable.price)
+                if payable.price:
+                    title = content.title + " : $%0.2f" % (payable.price)
+                else:
+                    title = content.title
                 description = content.description
 
                 widget.setTitle(title)
@@ -489,7 +505,10 @@ class GetpaidPFGAdapter(FormActionAdapter):
         for b in buyables:
             o = b.getObject()
             payable = GPInterfaces.IPayable(o)
-            stuff.append((b.getPath(), o.title + " : %0.2f" % (payable.price)))
+            if payable.price:
+                stuff.append((b.getPath(), o.title + " : %0.2f" % (payable.price)))
+            else:
+                stuff.append((b.getPath(), o.title))
         display = DisplayList(stuff)
         return display
 
