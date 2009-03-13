@@ -1,0 +1,45 @@
+=======
+CHANGES
+=======
+
+0.1 (2009-03-13)
+----------------
+
+- removed the package info that shouldn't be under svn [lucielejard]
+- moved setup.py at the same level as src, and updated the link to files in it,
+- fixed typo (Conutry -> Country) [mcgruff.scruff]
+- explicitly including meta.zcml (uncommitted change from hg tarball)
+- spacing cleanup (uncommitted change from hg tarball)
+- post-migration cleanup. [mcgruff.scruff]
+  These files were brought in from a Mercurial tarball (provided by David
+  Glick) using Tailor with the following configuration:
+  
+:: 
+ 
+  [tailor]
+  verbose = True
+  source = hg:
+  target = svn:
+  start-revision = 14
+  root-directory = ~/Desktop/getpaid.formgen
+  encoding = UTF-8
+  [hg:tailor]
+  repository = ~/Desktop/getpaid.formgen
+  [svn:tailor]
+  repository = https://getpaid.googlecode.com/svn
+  module = getpaid.formgen/trunk/src
+
+- Also, I removed all .pyc files before migration with:
+
+::
+
+  find . -type f -name "*.pyc" -exec rm -f {} \;
+
+- ripped out perrito's unnecessary action adapter blocking PFG already
+  handles that if you return an error value
+- misc cleanup: fixed imports, removed pdbs, resuscitated test infrastructure
+- Added remarks about usage
+- pumped some info into the readme file
+- Added support to run other adapters before doing one page checkout 
+  redirection to thank you page.
+

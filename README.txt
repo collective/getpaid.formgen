@@ -1,5 +1,5 @@
-getpaid.formgen Package Readme
-=========================
+getpaid.formgen Package
+=======================
 
 Overview
 --------
@@ -31,7 +31,7 @@ required folders for a GetPaid checkout and allows you to map any GetPaid
 product on the site to a field on your form.
 
 A few remarks:
-------
+--------------
   * If you are using other adapters (such as salesforce one) please make sure to
     edit and save (even without changes) this one last, because it adds a clause
     to all other present adapters so they execute after it, this avoids comitting

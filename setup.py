@@ -1,15 +1,14 @@
 # -*- encoding: utf-8 -*-
 
 from setuptools import setup, find_packages
-import os
 
-version = '0.1'
+version = '0.1dev'
 
 setup(name='getpaid.formgen',
       version=version,
       description=u"PloneGetPaid♡PloneFormGen integration".encode('utf-8'),
       long_description=open("README.txt").read() + "\n" +
-                       open(os.path.join("src", "docs", "HISTORY.txt")).read(),
+                       open("CHANGES.txt").read(),
       classifiers=[
         "Framework :: Plone",
         "Programming Language :: Python",
