@@ -9,4 +9,6 @@
   <object name="portal_types" meta_type="Plone Types Tool">
       <object name="GetpaidPFGAdapter"
           meta_type="Factory-based Type Information with dynamic views"/>
+      <object name="GetPaidFormMailerAdapter"
+          meta_type="Factory-based Type Information with dynamic views"/>
   </object>

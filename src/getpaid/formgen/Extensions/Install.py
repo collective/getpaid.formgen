@@ -9,7 +9,7 @@ from Products.CMFPlone.utils import versionTupleFromString
 
 from StringIO import StringIO
 
-ALLTYPES = ('GetpaidPFGAdapter',)
+ALLTYPES = ('GetpaidPFGAdapter','GetPaidFormMailerAdapter',)
 DEPENDENCIES = ('PloneFormGen','PloneGetPaid',) # eventually DataGridField as well
 
 def install(self):
@@ -33,15 +33,16 @@ def install(self):
     
     
     # add the GetpaidPFGAdapter type as an addable type to FormField
-    print >> out, "Adding GetpaidPFGAdapter to Form Field allowed_content_types"
     types_tool = getToolByName(self, 'portal_types')
     if 'FormFolder' in types_tool.objectIds():
         allowedTypes = types_tool.FormFolder.allowed_content_types
         
-        if ALLTYPES[0] not in allowedTypes:
-            allowedTypes = list(allowedTypes)
-            allowedTypes.append(ALLTYPES[0])
-            types_tool.FormFolder.allowed_content_types = allowedTypes
+        for f in ALLTYPES:
+            if f not in allowedTypes:
+                allowedTypes = list(allowedTypes)
+                allowedTypes.append(f)
+                types_tool.FormFolder.allowed_content_types = allowedTypes
+                print >> out, u"Added %s to Form Field allowed_content_types" % f
         
     propsTool = getToolByName(self, 'portal_properties')
     siteProperties = getattr(propsTool, 'site_properties')
@@ -92,11 +93,12 @@ def uninstall(self):
     if 'FormFolder' in types_tool.objectIds():
         allowedTypes = types_tool.FormFolder.allowed_content_types
         
-        if ALLTYPES[0] in allowedTypes:
-            allowedTypes = list(allowedTypes)
-            allowedTypes.remove(ALLTYPES[0])
-            types_tool.FormFolder.allowed_content_types = allowedTypes
-            print >> out, u"Removed %s from FormFolder's allowedTypes" % ALLTYPES[0]
+        for t in ALLTYPES:
+            if t in allowedTypes:
+                allowedTypes = list(allowedTypes)
+                allowedTypes.remove(t)
+                types_tool.FormFolder.allowed_content_types = allowedTypes
+                print >> out, u"Removed %s from FormFolder's allowedTypes" % t
     
     # remove our types from the portal's list of types excluded from navigation
     typesNotListed = list(navtreeProperties.getProperty('metaTypesNotToList'))

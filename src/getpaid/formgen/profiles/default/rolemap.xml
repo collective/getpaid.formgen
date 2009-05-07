@@ -12,5 +12,10 @@
         <role name="Manager" />
         <role name="Owner" />
     </permission>
+
+    <permission name="PloneFormGen: Add GetPaid Mailer adapter" acquire="False">
+        <role name="Manager" />
+        <role name="Owner" />
+    </permission>
   </permissions>
 </rolemap>
