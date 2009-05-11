@@ -74,8 +74,6 @@ class GetPaidFormMailerAdapter(FormMailerAdapter):
         """
         e-mails data.
         """
-        attachments = self.get_form_attachments(fields, REQUEST)
-
         all_fields = [f for f in fields
             if not (f.isLabel() or f.isFileField()) and not (getattr(self, 'showAll', True) and f.getServerSide())]
 
@@ -105,8 +103,6 @@ class GetPaidFormMailerAdapter(FormMailerAdapter):
         if (cart == None):
             logger.info("Unable to get cart")
         else:
-            # I need to get the name of this adapter so users
-            # can add multiple without them conflicting
             annotation = IAnnotations(cart)
 
             if "getpaid.formgen.mailer.adapters" in annotation:
@@ -123,6 +119,8 @@ class GetPaidFormMailerAdapter(FormMailerAdapter):
 
             data = {}
             data['formFields'] = formFields
+
+            attachments = self.get_form_attachments(fields, REQUEST)
             data['attachments'] = attachments
 
             # This is a complete hack and I can't believe it isn't
@@ -130,9 +128,16 @@ class GetPaidFormMailerAdapter(FormMailerAdapter):
             # I just need some of the request for my supers
             # implementation.  I can't pickle an aq wrapped object, so
             # I resort to this.  Perhaps it's better to reimplement
-            # the code from my super I'm reusing?
+            # the code from my super I'm reusing? 
+            # (note I did end up pulling more code into this class)
             req = {}
-            req['form'] = copy.deepcopy(REQUEST.form)
+            req['form'] = {}
+            # ignore any form element that is a file upload field
+            for key in REQUEST.form.keys():
+                value = REQUEST.form[key]
+                if value and not isinstance(value, FileUpload):
+                    req['form'][key] = value
+                
             for key in getattr(self, 'xinfo_headers', []):
                 if REQUEST.has_key(key):
                     req[key] = REQUEST[key]
@@ -172,8 +177,11 @@ class GetPaidFormMailerAdapter(FormMailerAdapter):
             logger.info("Unable to get cart")
         else:
             annotation = IAnnotations(cart)
-            if "getpaid.formgen.mailer.attachments" in annotation:
-                attachments = annotation["getpaid.formgen.mailer.attachments"]
+
+            annotationKey = "getpaid.formgen.mailer.%s" % self.title
+            if annotationKey in annotation:
+                data = annotation[annotationKey]
+                attachments = data["attachments"]
 
         return attachments
 
@@ -368,15 +376,6 @@ class GetPaidFormMailerAdapter(FormMailerAdapter):
 
         return ret
 
-#         return self.fgFieldsDisplayList(
-#             withNone=True,
-#             noneValue='#NONE#',
-#             objTypes=(
-#                 'FormSelectionField',
-#                 'FormStringField',
-#                 )
-#             )
-
     security.declareProtected(ModifyPortalContent, 'setShowFields')
     def setShowFields(self, value, **kw):
         """ Reorder form input to match field order """
@@ -416,7 +415,6 @@ def handleOrderWorkflowTransition( order, event ):
 def _getValuesFromOrder(order):
     ret = {}
     
-    import pdb; pdb.set_trace()
     ret[NAME] = order.contact_information.name
     ret[PHONE_NUMBER] = order.contact_information.phone_number
     ret[EMAIL] = order.contact_information.email
@@ -428,16 +426,31 @@ def _getValuesFromOrder(order):
     ret[BILLING_COUNTRY] = order.billing_address.bill_country
     ret[BILLING_STATE] = order.billing_address.bill_state    
     ret[BILLING_ZIP] = order.billing_address.bill_postal_code      
-    ret[SHIPPING_STREET_1] = order.shipping_address.ship_first_line
-    ret[SHIPPING_STREET_2] = order.shipping_address.ship_second_line
-    ret[SHIPPING_CITY] = order.shipping_address.ship_city    
-    ret[SHIPPING_COUNTRY] = order.shipping_address.ship_country
-    ret[SHIPPING_STATE] = order.shipping_address.ship_state      
-    ret[SHIPPING_ZIP] = order.shipping_address.ship_postal_code         
+    ret[BILLING_PHONE] = order.bill_phone_number      
+    
+    if order.shipping_address.ship_same_billing:
+        ret[SHIPPING_STREET_1] = order.billing_address.bill_first_line
+        ret[SHIPPING_STREET_2] = order.billing_address.bill_second_line
+        ret[SHIPPING_CITY] = order.billing_address.bill_city    
+        ret[SHIPPING_COUNTRY] = order.billing_address.bill_country
+        ret[SHIPPING_STATE] = order.billing_address.bill_state      
+        ret[SHIPPING_ZIP] = order.billing_address.bill_postal_code         
+    else:
+        ret[SHIPPING_STREET_1] = order.shipping_address.ship_first_line
+        ret[SHIPPING_STREET_2] = order.shipping_address.ship_second_line
+        ret[SHIPPING_CITY] = order.shipping_address.ship_city    
+        ret[SHIPPING_COUNTRY] = order.shipping_address.ship_country
+        ret[SHIPPING_STATE] = order.shipping_address.ship_state      
+        ret[SHIPPING_ZIP] = order.shipping_address.ship_postal_code         
+
     ret[ORDER_ID] = order.order_id
     ret[ORDER_DATE] = order.creation_date.ctime()
+#    ret[ORDER_TAX_TOTAL] = order.getTaxCost()
+    ret[ORDER_SHIPPING_TOTAL] = order.getShippingCost()
+    ret[ORDER_SUB_TOTAL] = order.getSubTotalPrice()
     ret[ORDER_TOTAL] = order.getTotalPrice()
     ret[ORDER_TRANSACTION_ID] = order.processor_order_id
+    ret[CC_NAME] = order.name_on_card
     ret[CC_LAST_4] = order.user_payment_info_last4
     ret[ORDER_ITEMS_ARRAY] = []
 
@@ -466,6 +479,7 @@ BILLING_CITY         = u'Billing Address City'
 BILLING_COUNTRY      = u'Billing Address Country'
 BILLING_STATE        = u'Billing Address State'
 BILLING_ZIP          = u'Billing Address Zip'
+BILLING_PHONE        = u'Billing Phone Number'
 SHIPPING_STREET_1    = u'Shipping Address Street 1'
 SHIPPING_STREET_2    = u'Shipping Address Street 2'
 SHIPPING_CITY        = u'Shipping Address City'
@@ -474,8 +488,12 @@ SHIPPING_STATE       = u'Shipping Address State'
 SHIPPING_ZIP         = u'Shipping Address Zip'
 ORDER_ID             = u'Order Id'
 ORDER_DATE           = u'Order Creation Date'
+ORDER_TAX_TOTAL      = u'Tax Total'
+ORDER_SHIPPING_TOTAL = u'Shipping Total'
+ORDER_SUB_TOTAL      = u'Order Subtotal'
 ORDER_TOTAL          = u'Order Total'
 ORDER_TRANSACTION_ID = u'Order Transaction Id'
+CC_NAME              = u'Cardholder Name'
 CC_LAST_4            = u'CC Last 4'
 ORDER_ITEMS_ARRAY    = u'Items'
 ITEM_QTY             = u'Line Item Quantity'
@@ -506,6 +524,9 @@ GetPaidFields = (
     SHIPPING_ZIP,
     ORDER_ID,
     ORDER_DATE,
+    ORDER_TAX_TOTAL,
+    ORDER_SHIPPING_TOTAL,
+    ORDER_SUB_TOTAL,
     ORDER_TOTAL,
     ORDER_TRANSACTION_ID,
     CC_LAST_4,
