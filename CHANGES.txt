@@ -2,6 +2,12 @@
 CHANGES
 =======
 
+0.2 (2009-05-12)
+----------------
+
+- Add adapter that collects formgen fields and getpaid fields and emails them
+  following successful charge.
+
 0.1 (2009-03-13)
 ----------------
 
