@@ -22,5 +22,11 @@
       />
 
     <!-- -*- extra stuff goes here -*- -->
+  <!-- Per Order Log of Workflow Events -->
+  <subscriber
+     handler=".content.getpaidFormMailerAdapter.handleOrderWorkflowTransition"
+     for="getpaid.core.interfaces.IOrder
+          hurry.workflow.interfaces.IWorkflowTransitionEvent"
+     />
 
 </configure>

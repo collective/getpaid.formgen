@@ -1,3 +1,4 @@
 #
 
 from getpaidpfgadapter import GetpaidPFGAdapter
+from getpaidFormMailerAdapter import GetPaidFormMailerAdapter

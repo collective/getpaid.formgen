@@ -6,6 +6,7 @@
     <!-- configure your content components here -->
 
     <class class=".GetpaidPFGAdapter" />
+    <class class=".GetPaidFormMailerAdapter" />
 
     <!-- -*- extra stuff goes here -*- -->
 
