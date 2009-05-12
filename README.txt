@@ -4,7 +4,7 @@ getpaid.formgen Package
 Overview
 --------
 
-PloneGetPaid♡PloneFormGen
+PloneGetPaid-PloneFormGen
 
 Link PloneFormGen with PloneGetPaid so a form can add items or donations
 to the GetPaid shopping cart.
@@ -22,7 +22,7 @@ There are two ways of installing getpaid.forgen, if you got it as an egg you
 just easy_install it or fetch it with your buildout or else you can copy the
 inner formgen from this folder structure to your instance's
 /lib/python/getpaid.
-After that you will see PloneGetPaid♡PloneFormGen in your plone control
+After that you will see PloneGetPaid-PloneFormGen in your plone control
 pannel addon product section (you may see two, install whichever you want, 
 they are the same thing).
 After hitting install you are done, now whenever you create a FormGen folder
