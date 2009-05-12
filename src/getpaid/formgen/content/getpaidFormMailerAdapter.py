@@ -464,6 +464,16 @@ def _getValuesFromOrder(order):
         itemDict[ITEM_TOTAL_COST] = item[1].cost * item[1].quantity
         itemDict[ITEM_DESC] = item[1].description    
 
+        # Check to see if a discount code was applied to this item
+        itemDict[DISCOUNT_CODE] = ''
+        itemDict[DISCOUNT_TITLE] = ''
+        itemDict[DISCOUNT_TOTAL] = ''
+        annotation = IAnnotations(item[1])
+        if "getpaid.discount.code" in annotation:
+            itemDict[DISCOUNT_CODE] = annotation["getpaid.discount.code"]
+            itemDict[DISCOUNT_TITLE] = annotation["getpaid.discount.code.title"]
+            itemDict[DISCOUNT_TOTAL] = annotation["getpaid.discount.code.discount"]
+
         ret[ORDER_ITEMS_ARRAY].append(itemDict)
 
     return ret
@@ -496,6 +506,9 @@ ORDER_TRANSACTION_ID = u'Order Transaction Id'
 CC_NAME              = u'Cardholder Name'
 CC_LAST_4            = u'CC Last 4'
 ORDER_ITEMS_ARRAY    = u'Items'
+DISCOUNT_CODE        = u'Discount Code'
+DISCOUNT_TITLE       = u'Discount Title'
+DISCOUNT_TOTAL       = u'Discount Total'
 ITEM_QTY             = u'Line Item Quantity'
 ITEM_ID              = u'Line Item Id'
 ITEM_NAME            = u'Line Item Name'
@@ -529,6 +542,9 @@ GetPaidFields = (
     ORDER_SUB_TOTAL,
     ORDER_TOTAL,
     ORDER_TRANSACTION_ID,
+    DISCOUNT_CODE,
+    DISCOUNT_TITLE,
+    DISCOUNT_TOTAL,
     CC_LAST_4,
     ORDER_ITEMS_ARRAY,
     ITEM_QTY,
