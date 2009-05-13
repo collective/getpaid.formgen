@@ -5,6 +5,12 @@ CHANGES
 0.3 (unreleased)
 ----------------
 
+0.2.1 (2009-05-13)
+------------------
+
+- Fix a bug where field mapping for fields in fieldsets fails to work
+- Fix a bug were the adapter attempts to move itself to the front of the adapters list but fails
+
 0.2 (2009-05-12)
 ----------------
 

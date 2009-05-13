@@ -319,10 +319,15 @@ class GetpaidPFGAdapter(FormActionAdapter):
         portal_catalog = getToolByName(self, 'portal_catalog')
         form_payable = dict((p['field_path'], p['payable_path']) for p in self.payablesMap if p['payable_path'])
         parent_node = self.getParentNode()
+
+        formFolder = aq_parent(self)
+        formFolderPath = formFolder.getPhysicalPath()
         for field in fields:
-            if field.getId() in form_payable:
+            fieldId = ",".join(field.getPhysicalPath()[len(formFolderPath):])
+
+            if fieldId in form_payable:
                 try:
-                    content = parent_node.restrictedTraverse(form_payable[field.getId()], None)
+                    content = parent_node.restrictedTraverse(form_payable[fieldId], None)
 
                     if content is not None:
                         if IVariableAmountDonatableMarker.providedBy(content):
@@ -377,10 +382,6 @@ class GetpaidPFGAdapter(FormActionAdapter):
         if template:
             self.getField('GPFieldsetType').set(self,template)
             getattr(self,self.available_templates[template])()
-        if self.getId() in self.aq_parent.actionAdapter:
-            if self.aq_parent.actionAdapter[0] != self.getId():
-                adapter_title = self.aq_parent.actionAdapter.pop(self.aq_parent.actionAdapter.index(self.getId()))
-                self.aq_parent.actionAdapter.insert(0,adapter_title)
 
     def setGPSubmit(self, submit_legend):
         """
