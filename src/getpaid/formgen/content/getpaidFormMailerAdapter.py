@@ -456,6 +456,10 @@ def _getValuesFromOrder(order):
         ret[SHIPPING_STATE] = order.shipping_address.ship_state      
         ret[SHIPPING_ZIP] = order.shipping_address.ship_postal_code         
 
+    ret[SHIPPING_SERVICE] = getShippingService(order)
+    ret[SHIPPING_METHOD] = getShippingMethod(order)
+    ret[SHIPPING_WEIGHT] = getShipmentWeight(order)
+
     ret[ORDER_ID] = order.order_id
     ret[ORDER_DATE] = order.creation_date.ctime()
 #    ret[ORDER_TAX_TOTAL] = order.getTaxCost()
@@ -491,6 +495,43 @@ def _getValuesFromOrder(order):
 
     return ret
     
+def getShippingService(order):
+    if not hasattr(order,"shipping_service"):
+        return _(u"N/A")
+    infos = order.shipping_service
+    if infos:
+        return infos
+
+def getShippingMethod(order):
+    # check the traversable wrrapper
+    if not interfaces.IShippableOrder.providedBy( order ):
+        return _(u"N/A")
+    
+    service = component.queryUtility( interfaces.IShippingRateService,
+                                      order.shipping_service )
+    
+    # play nice if the a shipping method is removed from the store
+    if not service: 
+        return _(u"N/A")
+        
+    return service.getMethodName( order.shipping_method )
+    
+def getShipmentWeight(order):
+    """
+    Lets return the weight in lbs for the moment
+    """
+    # check the traversable wrrapper
+    if not interfaces.IShippableOrder.providedBy( order ):
+        return _(u"N/A")
+
+    totalShipmentWeight = 0
+    for eachProduct in order.shopping_cart.values():
+        if interfaces.IShippableLineItem.providedBy( eachProduct ):
+            weightValue = eachProduct.weight * eachProduct.quantity
+            totalShipmentWeight += weightValue
+    return totalShipmentWeight
+       
+
 NAME                 = u'Name'
 PHONE_NUMBER         = u'Phone Number' 
 EMAIL                = u'Email'
@@ -509,6 +550,9 @@ SHIPPING_CITY        = u'Shipping Address City'
 SHIPPING_COUNTRY     = u'Shipping Address Country'
 SHIPPING_STATE       = u'Shipping Address State'
 SHIPPING_ZIP         = u'Shipping Address Zip'
+SHIPPING_SERVICE     = u'Shipping Service'
+SHIPPING_METHOD      = u'Shipping Method'
+SHIPPING_WEIGHT      = u'Shipping Weight'
 ORDER_ID             = u'Order Id'
 ORDER_DATE           = u'Order Creation Date'
 ORDER_TAX_TOTAL      = u'Tax Total'
@@ -548,6 +592,9 @@ GetPaidFields = (
     SHIPPING_COUNTRY,
     SHIPPING_STATE,
     SHIPPING_ZIP,
+    SHIPPING_SERVICE,
+    SHIPPING_METHOD,
+    SHIPPING_WEIGHT,
     ORDER_ID,
     ORDER_DATE,
     ORDER_TAX_TOTAL,
@@ -582,12 +629,102 @@ DEFAULT_MAILTEMPLATE_BODY = \
             <dt tal:content="python:field[1]"/>
         </tal:block>
     </dl>
-    <dl>
-        <tal:block define="field options/getPaidFields" tal:repeat="v python:field.keys()">
-            <dt tal:content="v"/>
-            <dt tal:content="python:field[v]"/>
-        </tal:block>
-    </dl>
+    <tal:block define="field options/getPaidFields">
+      <div>
+        <div style="float:left; width:30%">
+          <fieldset>
+	    <legend> Billing Address </legend>
+            <span tal:content="python:field['Name']">Name</span><br />
+            <span tal:content="python:field['Billing Address Street 1']">Street 1</span><br />
+            <span tal:content="python:field['Billing Address Street 2']">Street 2</span><br />
+            <span tal:content="python:field['Billing Address City']">City</span><br />
+            <span tal:content="python:field['Billing Address Country']">Country</span><br />
+            <span tal:content="python:field['Billing Address State']">State</span><br />
+            <span tal:content="python:field['Billing Address Zip']">Zip</span><br />
+          </fieldset>
+        </div>
+        <div style="float: left; padding-left: 3em; width: 30%;">
+          <fieldset>
+            <legend> Mailing Address </legend>
+            <span tal:content="python:field['Shipping Address Street 1']">Street 1</span><br />
+            <span tal:content="python:field['Shipping Address Street 2']">Street 2</span><br />
+            <span tal:content="python:field['Shipping Address City']">City</span><br />
+            <span tal:content="python:field['Shipping Address Country']">Country</span><br />
+            <span tal:content="python:field['Shipping Address State']">State</span><br />
+            <span tal:content="python:field['Shipping Address Zip']">Zip</span><br />
+          </fieldset>
+        </div>
+      </div>
+
+      <div style="clear:both;"><!-- --></div>
+      
+      <div class="cart-listing">
+	<fieldset>
+ 	  <legend> Shopping Cart </legend>
+	         
+          <table class="listing">
+            <thead>
+              <tr>             
+                <th>
+                  Quantity
+                </th>
+                <th>
+                  Name
+                </th>
+                <th>
+                  Price
+                </th>
+                <th>
+                  Total
+                </th>
+              </tr>
+            </thead>
+
+            <tbody>           
+              <tal:block tal:repeat="item python:field['Items']">
+                <tr>
+                  <td>
+                    <span tal:content="python:item['Line Item Quantity']">1</span>
+                  </td>
+                  <td>
+                    <span tal:content="python:item['Line Item Name']">Name</span>
+                  </td>
+                  <td>
+                    <span tal:content="python:item['Line Item Item Cost']">Price</span>
+                  </td>
+                  <td>
+                    <span tal:content="python:item['Total Line Item Cost']">Total Cost</span>
+                  </td>
+                </tr>
+              </tal:block>
+            </tbody>
+          </table>
+
+          <div class="getpaid-totals">
+            <table class="listing">
+              <tr>
+                <th>SubTotal</th>
+                <td><span tal:content="python:field['Order Subtotal']">Subtotal</span></td>
+              </tr>
+              <tr>
+                <th>Shipping</th>
+                <td><span tal:content="python:field['Shipping Total']">Shipping</span></td>
+              </tr>
+<!--
+              <tr>
+                <th>Tax</th>
+                <td><span tal:content="python:field['Tax']">Tax</span></td>
+              </tr>
+-->
+              <tr>
+                <th>Total</th>
+                <td><span tal:content="python:field['Order Total']">Order Total</span></td>
+              </tr>
+            </table>
+          </div>
+        </fieldset>
+      </div>
+    </tal:block>
     <p tal:content="here/getBody_post | nothing" />
     <pre tal:content="here/getBody_footer | nothing" />
   </body>

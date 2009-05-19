@@ -4,6 +4,7 @@ CHANGES
 
 0.3 (unreleased)
 ----------------
+- Expose shipping service, method and weight to email template.
 
 0.2.2 (2009-05-19)
 ------------------
