@@ -6,6 +6,10 @@ CHANGES
 ----------------
 - Expose shipping service, method and weight to email template.
 
+0.2.3 (2009-05-19)
+------------------
+- Expose shipping information in default mail template [larubbio]
+
 0.2.2 (2009-05-19)
 ------------------
 - Fix a two phase commit bug when used with a ZODB mount point
