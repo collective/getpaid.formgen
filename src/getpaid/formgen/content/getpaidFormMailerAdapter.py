@@ -49,7 +49,7 @@ from email.Header import Header
 
 # Get Paid events
 import zope
-from getpaid.core.interfaces import workflow_states, IShoppingCartUtility
+from getpaid.core.interfaces import workflow_states, IShoppingCartUtility, IShippableOrder, IShippingRateService, IShippableLineItem
 from zope.app.component.hooks import getSite
 from zope.app.annotation.interfaces import IAnnotations
 
@@ -415,15 +415,14 @@ def handleOrderWorkflowTransition( order, event ):
                     attachments = data['attachments']
                     request = data['request']
                     adapter = data['adapter']
-                    
+                
                     adapter.__of__(site).send_form(formFields, request, getPaidFields=getPaidFields)
     except:
-        # I catch evrything since and uncaught exception here will prevent
-        # the order from moving to charged
+        # I catch evrything since an uncaught exception here will prevent
+        # the order from moving to charged even though the charge 
+        # has gone through
         logger.error("Exception sending email for order %s" % order.order_id)
-        for field in formFields:
-            logger.error("Field %s -> %s" % field[0], field[1])
-
+        
 
 def _getValuesFromOrder(order):
     ret = {}
@@ -497,22 +496,22 @@ def _getValuesFromOrder(order):
     
 def getShippingService(order):
     if not hasattr(order,"shipping_service"):
-        return _(u"N/A")
+        return None
     infos = order.shipping_service
     if infos:
         return infos
 
 def getShippingMethod(order):
     # check the traversable wrrapper
-    if not interfaces.IShippableOrder.providedBy( order ):
-        return _(u"N/A")
+    if not IShippableOrder.providedBy( order ):
+        return None
     
-    service = component.queryUtility( interfaces.IShippingRateService,
-                                      order.shipping_service )
+    service = zope.component.queryUtility( IShippingRateService,
+                                           order.shipping_service )
     
     # play nice if the a shipping method is removed from the store
     if not service: 
-        return _(u"N/A")
+        return None
         
     return service.getMethodName( order.shipping_method )
     
@@ -521,12 +520,12 @@ def getShipmentWeight(order):
     Lets return the weight in lbs for the moment
     """
     # check the traversable wrrapper
-    if not interfaces.IShippableOrder.providedBy( order ):
-        return _(u"N/A")
+    if not IShippableOrder.providedBy( order ):
+        return None
 
     totalShipmentWeight = 0
     for eachProduct in order.shopping_cart.values():
-        if interfaces.IShippableLineItem.providedBy( eachProduct ):
+        if IShippableLineItem.providedBy( eachProduct ):
             weightValue = eachProduct.weight * eachProduct.quantity
             totalShipmentWeight += weightValue
     return totalShipmentWeight
@@ -624,10 +623,10 @@ DEFAULT_MAILTEMPLATE_BODY = \
   <body>
     <p tal:content="here/getBody_pre | nothing" />
     <dl>
-        <tal:block repeat="field options/formFields">
-            <dt tal:content="python:field[0]"/>
-            <dt tal:content="python:field[1]"/>
-        </tal:block>
+      <tal:block repeat="field options/formFields">
+        <dt tal:content="python:field[0]"/>
+        <dt tal:content="python:field[1]"/>
+      </tal:block>
     </dl>
     <tal:block define="field options/getPaidFields">
       <div>
@@ -658,71 +657,108 @@ DEFAULT_MAILTEMPLATE_BODY = \
 
       <div style="clear:both;"><!-- --></div>
       
-      <div class="cart-listing">
+      <div>
 	<fieldset>
- 	  <legend> Shopping Cart </legend>
-	         
+ 	  <legend> Shipping Information </legend>
+	  
           <table class="listing">
-            <thead>
-              <tr>             
-                <th>
-                  Quantity
-                </th>
-                <th>
-                  Name
-                </th>
-                <th>
-                  Price
-                </th>
-                <th>
-                  Total
-                </th>
-              </tr>
-            </thead>
-
             <tbody>           
-              <tal:block tal:repeat="item python:field['Items']">
-                <tr>
-                  <td>
-                    <span tal:content="python:item['Line Item Quantity']">1</span>
-                  </td>
-                  <td>
-                    <span tal:content="python:item['Line Item Name']">Name</span>
-                  </td>
-                  <td>
-                    <span tal:content="python:item['Line Item Item Cost']">Price</span>
-                  </td>
-                  <td>
-                    <span tal:content="python:item['Total Line Item Cost']">Total Cost</span>
-                  </td>
-                </tr>
-              </tal:block>
+              <tr>
+                <td>
+                  Shipping Service
+                </td>
+                <td>
+                  <span tal:content="python:field['Shipping Service']">Shipping Service</span>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  Shipping Method
+                </td>
+                <td>
+                  <span tal:content="python:field['Shipping Method']">Shipping Method</span>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  Shipping Weight
+                </td>
+                <td>
+                  <span tal:content="python:field['Shipping Weight']">Shipping Weight</span>
+                </td>
+              </tr>
             </tbody>
           </table>
+	</fieldset>
+      </div>
 
-          <div class="getpaid-totals">
-            <table class="listing">
+      <div style="clear:both;"><!-- --></div>
+
+      <div class="cart-listing">
+	<fieldset>
+	  <legend> Shopping Cart </legend>
+	  
+	  <table class="listing">
+	    <thead>
+              <tr>             
+		<th>
+		  Quantity
+		</th>
+		<th>
+		  Name
+		</th>
+		<th>
+		  Price
+		</th>
+		<th>
+		  Total
+		</th>
+              </tr>
+	    </thead>
+
+	    <tbody>           
+              <tal:block tal:repeat="item python:field['Items']">
+		<tr>
+		  <td>
+		    <span tal:content="python:item['Line Item Quantity']">1</span>
+		  </td>
+		  <td>
+		    <span tal:content="python:item['Line Item Name']">Name</span>
+		  </td>
+		  <td>
+		    <span tal:content="python:item['Line Item Item Cost']">Price</span>
+		  </td>
+		  <td>
+		    <span tal:content="python:item['Total Line Item Cost']">Total Cost</span>
+		  </td>
+		</tr>
+              </tal:block>
+	    </tbody>
+	  </table>
+
+	  <div class="getpaid-totals">
+	    <table class="listing">
               <tr>
-                <th>SubTotal</th>
-                <td><span tal:content="python:field['Order Subtotal']">Subtotal</span></td>
+		<th>SubTotal</th>
+		<td><span tal:content="python:field['Order Subtotal']">Subtotal</span></td>
               </tr>
               <tr>
-                <th>Shipping</th>
-                <td><span tal:content="python:field['Shipping Total']">Shipping</span></td>
+		<th>Shipping</th>
+		<td><span tal:content="python:field['Shipping Total']">Shipping</span></td>
               </tr>
-<!--
+	      <!--
+		  <tr>
+		    <th>Tax</th>
+		    <td><span tal:content="python:field['Tax']">Tax</span></td>
+		  </tr>
+		  -->
               <tr>
-                <th>Tax</th>
-                <td><span tal:content="python:field['Tax']">Tax</span></td>
+		<th>Total</th>
+		<td><span tal:content="python:field['Order Total']">Order Total</span></td>
               </tr>
--->
-              <tr>
-                <th>Total</th>
-                <td><span tal:content="python:field['Order Total']">Order Total</span></td>
-              </tr>
-            </table>
-          </div>
-        </fieldset>
+	    </table>
+	  </div>
+	</fieldset>
       </div>
     </tal:block>
     <p tal:content="here/getBody_post | nothing" />
