@@ -21,6 +21,8 @@ __docformat__ = 'plaintext'
 
 import logging
 
+from cPickle import loads, dumps
+
 from AccessControl import ClassSecurityInfo
 
 from Products.Archetypes.public import *
@@ -144,8 +146,11 @@ class GetPaidFormMailerAdapter(FormMailerAdapter):
 
             data['request'] = req
 
-            tmp = copy.copy(aq_base(self))
-            data['adapter'] = tmp
+            # adapter is attached to the main ZODB
+            # If using mount points then storage of adapter fails
+            # due to cross db commit. We pickle to get a 
+            # clean copy to store.
+            data['adapter'] = loads( dumps( aq_base(self) ) )
 
             annotation[annotationKey] = data
 
@@ -393,25 +398,33 @@ registerATCT(GetPaidFormMailerAdapter, PROJECTNAME)
 
 def handleOrderWorkflowTransition( order, event ):
 
-    if order.finance_state == event.destination and event.destination == workflow_states.order.finance.CHARGED:
-        annotation = IAnnotations(order.shopping_cart)
-
-        if "getpaid.formgen.mailer.adapters" in annotation:
-            adapters = annotation["getpaid.formgen.mailer.adapters"]
-
-            getPaidFields = _getValuesFromOrder(order)
-            site = zope.app.component.hooks.getSite()
-            for a in adapters:
-                annotationKey = "getpaid.formgen.mailer.%s" % a
-                data = annotation[annotationKey]
-
-                formFields = data['formFields']
-                attachments = data['attachments']
-                request = data['request']
-                adapter = data['adapter']
-
-                adapter.__of__(site).send_form(formFields, request, getPaidFields=getPaidFields)
+    try:
+        if order.finance_state == event.destination and event.destination == workflow_states.order.finance.CHARGED:
+            annotation = IAnnotations(order.shopping_cart)
             
+            if "getpaid.formgen.mailer.adapters" in annotation:
+                adapters = annotation["getpaid.formgen.mailer.adapters"]
+                
+                getPaidFields = _getValuesFromOrder(order)
+                site = zope.app.component.hooks.getSite()
+                for a in adapters:
+                    annotationKey = "getpaid.formgen.mailer.%s" % a
+                    data = annotation[annotationKey]
+                    
+                    formFields = data['formFields']
+                    attachments = data['attachments']
+                    request = data['request']
+                    adapter = data['adapter']
+                    
+                    adapter.__of__(site).send_form(formFields, request, getPaidFields=getPaidFields)
+    except:
+        # I catch evrything since and uncaught exception here will prevent
+        # the order from moving to charged
+        logger.error("Exception sending email for order %s" % order.order_id)
+        for field in formFields:
+            logger.error("Field %s -> %s" % field[0], field[1])
+
+
 def _getValuesFromOrder(order):
     ret = {}
     
