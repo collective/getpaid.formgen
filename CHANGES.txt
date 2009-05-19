@@ -5,6 +5,11 @@ CHANGES
 0.3 (unreleased)
 ----------------
 
+0.2.2 (2009-05-19)
+------------------
+- Fix a two phase commit bug when used with a ZODB mount point
+- Catch any exceptions that might happen when sending email.
+
 0.2.1 (2009-05-13)
 ------------------
 
