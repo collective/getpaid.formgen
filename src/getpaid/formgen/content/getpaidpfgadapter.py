@@ -16,7 +16,7 @@ import zope.component
 from AccessControl import getSecurityManager
 from Products.Archetypes import atapi
 from Products.Archetypes.public import StringField, SelectionWidget, \
-    DisplayList, Schema, StringWidget
+    DisplayList, Schema, StringWidget, BooleanField, BooleanWidget
 from Products.ATContentTypes.content.schemata import finalizeATCTSchema
 from Products.CMFCore.permissions import ModifyPortalContent
 from Products.CMFCore.utils import getToolByName
@@ -38,6 +38,7 @@ from getpaid.formgen.config import PROJECTNAME
 from zope.app import zapi
 from getpaid.formgen.content.checkout import MakePaymentProcess
 from Products.PloneGetPaid.interfaces import IGetPaidManagementOptions, IVariableAmountDonatableMarker
+from Products.PloneGetPaid import sessions
 
 logger = logging.getLogger("PloneFormGen")
 
@@ -54,6 +55,24 @@ schema = FormAdapterSchema.copy() + Schema((
                 vocabulary='getAvailableGetPaidForms'
                 ),
                 
+    BooleanField('useFormAsContinueDestination',
+        required=0,
+        searchable=0,
+        default='0',
+        widget=BooleanWidget(
+            label="Use form as 'Continue Shopping' destination.",
+            description="""
+                Check this to instruct the getpaid cart
+                to navigate the user back to this form
+                if they click 'Continue Shopping' while
+                viewing their cart.
+                """,
+            label_msgid = "label_continue_shopping_text",
+            description_msgid = "help_continue_shopping_text",
+            i18n_domain = "getpaidpfgadapter",
+            ),
+        ),
+
     DataGridField('payablesMap',
          searchable=False,
          required=True,
@@ -372,7 +391,14 @@ class GetpaidPFGAdapter(FormActionAdapter):
         """
         Will call the on success method according to the chosen template
         """
+
         result = getattr(self,self.success_callback)(fields, REQUEST)
+
+        # This needs to occur after we add the item to our cart since
+        # doing that sets came_from_url to the item
+        if getattr(self, 'useFormAsContinueDestination', False):
+            sessions.set_came_from_url(aq_parent(self))
+
         return result
     
     def setGPTemplate(self, template):
