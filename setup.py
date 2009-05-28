@@ -1,8 +1,9 @@
+
 # -*- encoding: utf-8 -*-
 
 from setuptools import setup, find_packages
 
-version = '0.3dev'
+version = '0.2.5dev'
 
 setup(name='getpaid.formgen',
       version=version,
