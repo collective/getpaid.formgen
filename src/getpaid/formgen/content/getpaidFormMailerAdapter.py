@@ -444,6 +444,7 @@ def _getValuesFromOrder(order):
     
     if order.shipping_address.ship_same_billing:
         ret[SHIPPING_NAME] = order.billing_address.bill_name
+        ret[SHIPPING_ORGANIZATION] = order.billing_address.bill_organization
         ret[SHIPPING_STREET_1] = order.billing_address.bill_first_line
         ret[SHIPPING_STREET_2] = order.billing_address.bill_second_line
         ret[SHIPPING_CITY] = order.billing_address.bill_city    
@@ -452,6 +453,7 @@ def _getValuesFromOrder(order):
         ret[SHIPPING_ZIP] = order.billing_address.bill_postal_code         
     else:
         ret[SHIPPING_NAME] = order.shipping_address.ship_name
+        ret[SHIPPING_ORGANIZATION] = order.shipping_address.ship_organization
         ret[SHIPPING_STREET_1] = order.shipping_address.ship_first_line
         ret[SHIPPING_STREET_2] = order.shipping_address.ship_second_line
         ret[SHIPPING_CITY] = order.shipping_address.ship_city    
@@ -535,50 +537,51 @@ def getShipmentWeight(order):
     return totalShipmentWeight
        
 
-NAME                 = u'Name'
-PHONE_NUMBER         = u'Phone Number' 
-EMAIL                = u'Email'
-CONTACT_ALLOWED      = u'Contact Allowed' 
-EMAIL_PREFERENCE     = u'Email Format Preference'
-BILLING_NAME         = u'Billing Address Name'
-BILLING_ORGANIZATION = u'Billing Organization'
-BILLING_STREET_1     = u'Billing Address Street 1'
-BILLING_STREET_2     = u'Billing Address Street 2'
-BILLING_CITY         = u'Billing Address City'
-BILLING_COUNTRY      = u'Billing Address Country'
-BILLING_STATE        = u'Billing Address State'
-BILLING_ZIP          = u'Billing Address Zip'
-BILLING_PHONE        = u'Billing Phone Number'
-SHIPPING_NAME        = u'Shipping Address Name'
-SHIPPING_STREET_1    = u'Shipping Address Street 1'
-SHIPPING_STREET_2    = u'Shipping Address Street 2'
-SHIPPING_CITY        = u'Shipping Address City'
-SHIPPING_COUNTRY     = u'Shipping Address Country'
-SHIPPING_STATE       = u'Shipping Address State'
-SHIPPING_ZIP         = u'Shipping Address Zip'
-SHIPPING_SERVICE     = u'Shipping Service'
-SHIPPING_METHOD      = u'Shipping Method'
-SHIPPING_WEIGHT      = u'Shipping Weight'
-ORDER_ID             = u'Order Id'
-ORDER_DATE           = u'Order Creation Date'
-ORDER_TAX_TOTAL      = u'Tax Total'
-ORDER_SHIPPING_TOTAL = u'Shipping Total'
-ORDER_SUB_TOTAL      = u'Order Subtotal'
-ORDER_TOTAL          = u'Order Total'
-ORDER_TRANSACTION_ID = u'Order Transaction Id'
-CC_NAME              = u'Cardholder Name'
-CC_LAST_4            = u'CC Last 4'
-ORDER_ITEMS_ARRAY    = u'Items'
-DISCOUNT_CODE        = u'Discount Code'
-DISCOUNT_TITLE       = u'Discount Title'
-DISCOUNT_TOTAL       = u'Discount Total'
-ITEM_QTY             = u'Line Item Quantity'
-ITEM_ID              = u'Line Item Id'
-ITEM_NAME            = u'Line Item Name'
-ITEM_PRODUCT_CODE    = u'Line Item Product Code'
-ITEM_COST            = u'Line Item Item Cost'
-ITEM_TOTAL_COST      = u'Total Line Item Cost'
-ITEM_DESC            = u'Line Item Item Description'
+NAME                  = u'Name'
+PHONE_NUMBER          = u'Phone Number' 
+EMAIL                 = u'Email'
+CONTACT_ALLOWED       = u'Contact Allowed' 
+EMAIL_PREFERENCE      = u'Email Format Preference'
+BILLING_NAME          = u'Billing Address Name'
+BILLING_ORGANIZATION  = u'Billing Organization'
+BILLING_STREET_1      = u'Billing Address Street 1'
+BILLING_STREET_2      = u'Billing Address Street 2'
+BILLING_CITY          = u'Billing Address City'
+BILLING_COUNTRY       = u'Billing Address Country'
+BILLING_STATE         = u'Billing Address State'
+BILLING_ZIP           = u'Billing Address Zip'
+BILLING_PHONE         = u'Billing Phone Number'
+SHIPPING_NAME         = u'Shipping Address Name'
+SHIPPING_ORGANIZATION = u'Shipping Organization'
+SHIPPING_STREET_1     = u'Shipping Address Street 1'
+SHIPPING_STREET_2     = u'Shipping Address Street 2'
+SHIPPING_CITY         = u'Shipping Address City'
+SHIPPING_COUNTRY      = u'Shipping Address Country'
+SHIPPING_STATE        = u'Shipping Address State'
+SHIPPING_ZIP          = u'Shipping Address Zip'
+SHIPPING_SERVICE      = u'Shipping Service'
+SHIPPING_METHOD       = u'Shipping Method'
+SHIPPING_WEIGHT       = u'Shipping Weight'
+ORDER_ID              = u'Order Id'
+ORDER_DATE            = u'Order Creation Date'
+ORDER_TAX_TOTAL       = u'Tax Total'
+ORDER_SHIPPING_TOTAL  = u'Shipping Total'
+ORDER_SUB_TOTAL       = u'Order Subtotal'
+ORDER_TOTAL           = u'Order Total'
+ORDER_TRANSACTION_ID  = u'Order Transaction Id'
+CC_NAME               = u'Cardholder Name'
+CC_LAST_4             = u'CC Last 4'
+ORDER_ITEMS_ARRAY     = u'Items'
+DISCOUNT_CODE         = u'Discount Code'
+DISCOUNT_TITLE        = u'Discount Title'
+DISCOUNT_TOTAL        = u'Discount Total'
+ITEM_QTY              = u'Line Item Quantity'
+ITEM_ID               = u'Line Item Id'
+ITEM_NAME             = u'Line Item Name'
+ITEM_PRODUCT_CODE     = u'Line Item Product Code'
+ITEM_COST             = u'Line Item Item Cost'
+ITEM_TOTAL_COST       = u'Total Line Item Cost'
+ITEM_DESC             = u'Line Item Item Description'
 
 GetPaidFields = (
     NAME,
@@ -595,6 +598,7 @@ GetPaidFields = (
     BILLING_STATE,
     BILLING_ZIP,
     SHIPPING_NAME,
+    SHIPPING_ORGANIZATION,
     SHIPPING_STREET_1,
     SHIPPING_STREET_2,
     SHIPPING_CITY,
@@ -657,6 +661,7 @@ DEFAULT_MAILTEMPLATE_BODY = \
           <fieldset>
             <legend> Mailing Address </legend>
             <span tal:content="python:field['Shipping Address Name']">Name</span><br />
+            <span tal:content="python:field['Shipping Organization']">Org</span><br />
             <span tal:content="python:field['Shipping Address Street 1']">Street 1</span><br />
             <span tal:content="python:field['Shipping Address Street 2']">Street 2</span><br />
             <span tal:content="python:field['Shipping Address City']">City</span><br />
