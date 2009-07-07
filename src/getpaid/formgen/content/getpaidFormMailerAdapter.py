@@ -432,6 +432,8 @@ def _getValuesFromOrder(order):
     ret[EMAIL] = order.contact_information.email
     ret[CONTACT_ALLOWED] = order.contact_information.marketing_preference
     ret[EMAIL_PREFERENCE] = order.contact_information.email_html_format
+    ret[BILLING_NAME] = order.billing_address.bill_name
+    ret[BILLING_ORGANIZATION] = order.billing_address.bill_organization
     ret[BILLING_STREET_1] = order.billing_address.bill_first_line
     ret[BILLING_STREET_2] = order.billing_address.bill_second_line
     ret[BILLING_CITY] = order.billing_address.bill_city
@@ -441,6 +443,7 @@ def _getValuesFromOrder(order):
     ret[BILLING_PHONE] = order.bill_phone_number      
     
     if order.shipping_address.ship_same_billing:
+        ret[SHIPPING_NAME] = order.billing_address.bill_name
         ret[SHIPPING_STREET_1] = order.billing_address.bill_first_line
         ret[SHIPPING_STREET_2] = order.billing_address.bill_second_line
         ret[SHIPPING_CITY] = order.billing_address.bill_city    
@@ -448,6 +451,7 @@ def _getValuesFromOrder(order):
         ret[SHIPPING_STATE] = order.billing_address.bill_state      
         ret[SHIPPING_ZIP] = order.billing_address.bill_postal_code         
     else:
+        ret[SHIPPING_NAME] = order.shipping_address.ship_name
         ret[SHIPPING_STREET_1] = order.shipping_address.ship_first_line
         ret[SHIPPING_STREET_2] = order.shipping_address.ship_second_line
         ret[SHIPPING_CITY] = order.shipping_address.ship_city    
@@ -536,6 +540,8 @@ PHONE_NUMBER         = u'Phone Number'
 EMAIL                = u'Email'
 CONTACT_ALLOWED      = u'Contact Allowed' 
 EMAIL_PREFERENCE     = u'Email Format Preference'
+BILLING_NAME         = u'Billing Address Name'
+BILLING_ORGANIZATION = u'Billing Organization'
 BILLING_STREET_1     = u'Billing Address Street 1'
 BILLING_STREET_2     = u'Billing Address Street 2'
 BILLING_CITY         = u'Billing Address City'
@@ -543,6 +549,7 @@ BILLING_COUNTRY      = u'Billing Address Country'
 BILLING_STATE        = u'Billing Address State'
 BILLING_ZIP          = u'Billing Address Zip'
 BILLING_PHONE        = u'Billing Phone Number'
+SHIPPING_NAME        = u'Shipping Address Name'
 SHIPPING_STREET_1    = u'Shipping Address Street 1'
 SHIPPING_STREET_2    = u'Shipping Address Street 2'
 SHIPPING_CITY        = u'Shipping Address City'
@@ -579,12 +586,15 @@ GetPaidFields = (
     EMAIL,
     CONTACT_ALLOWED,
     EMAIL_PREFERENCE,
+    BILLING_NAME,
+    BILLING_ORGANIZATION,
     BILLING_STREET_1,
     BILLING_STREET_2,
     BILLING_CITY,
     BILLING_COUNTRY,
     BILLING_STATE,
     BILLING_ZIP,
+    SHIPPING_NAME,
     SHIPPING_STREET_1,
     SHIPPING_STREET_2,
     SHIPPING_CITY,
@@ -633,7 +643,8 @@ DEFAULT_MAILTEMPLATE_BODY = \
         <div style="float:left; width:30%">
           <fieldset>
 	    <legend> Billing Address </legend>
-            <span tal:content="python:field['Name']">Name</span><br />
+            <span tal:content="python:field['Billing Address Name']">Name</span><br />
+            <span tal:content="python:field['Billing Organization']">Org</span><br />
             <span tal:content="python:field['Billing Address Street 1']">Street 1</span><br />
             <span tal:content="python:field['Billing Address Street 2']">Street 2</span><br />
             <span tal:content="python:field['Billing Address City']">City</span><br />
@@ -645,6 +656,7 @@ DEFAULT_MAILTEMPLATE_BODY = \
         <div style="float: left; padding-left: 3em; width: 30%;">
           <fieldset>
             <legend> Mailing Address </legend>
+            <span tal:content="python:field['Shipping Address Name']">Name</span><br />
             <span tal:content="python:field['Shipping Address Street 1']">Street 1</span><br />
             <span tal:content="python:field['Shipping Address Street 2']">Street 2</span><br />
             <span tal:content="python:field['Shipping Address City']">City</span><br />
