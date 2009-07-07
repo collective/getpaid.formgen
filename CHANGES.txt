@@ -2,8 +2,12 @@
 CHANGES
 =======
 
-0.2.6 (unreleased)
+0.2.7 (unreleased)
 ------------------
+
+0.2.6 (2009-07-07)
+------------------
+- Add shipping organization to the email [larubbio]
 
 0.2.5 (2009-07-07)
 ------------------
