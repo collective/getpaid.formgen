@@ -4,6 +4,7 @@ CHANGES
 
 0.2.7 (unreleased)
 ------------------
+- Add contact information to default mail [larubbio]
 
 0.2.6 (2009-07-07)
 ------------------
