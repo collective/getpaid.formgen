@@ -676,6 +676,17 @@ DEFAULT_MAILTEMPLATE_BODY = \
       
       <div>
 	<fieldset>
+ 	  <legend> Contact Information </legend>
+          Email: <span tal:content="python:field['Email']">Email</span><br />
+          Billing Phone: <span tal:content="python:field['Billing Phone Number']">Phone</span><br />
+          Phone: <span tal:content="python:field['Phone Number']">Phone</span><br />
+        </fieldset>
+      </div>
+
+      <div style="clear:both;"><!-- --></div>
+
+      <div>
+	<fieldset>
  	  <legend> Shipping Information </legend>
 	  
           <table class="listing">
