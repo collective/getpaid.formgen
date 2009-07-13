@@ -282,7 +282,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
             if field.getId() in form_payable:
                 try:
 
-                    content = parent_node.restrictedTraverse(form_payable[field.getId()], None)                        
+                    content = parent_node.unrestrictedTraverse(form_payable[field.getId()], None)                        
 
                     if content is not None:
 
@@ -346,7 +346,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
 
             if fieldId in form_payable:
                 try:
-                    content = parent_node.restrictedTraverse(form_payable[fieldId], None)
+                    content = parent_node.unrestrictedTraverse(form_payable[fieldId], None)
 
                     if content is not None:
                         if IVariableAmountDonatableMarker.providedBy(content):
