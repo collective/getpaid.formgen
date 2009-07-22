@@ -188,7 +188,8 @@ class GetpaidPFGAdapter(FormActionAdapter):
                                                'required':True},14],
         'bill_state':['FormStringField',{'title':u"State Code",
                                          'description':'Your State ISO code',
-                                               'required':True},15]},20],
+                                               'required':True},15]
+        },20],
                         'Credit Info':[{
         'credit_card_type':['FormSelectionField',{'title':u"Credit Card Type",
                                                   'fgVocabulary':getAvailableCreditCards,
@@ -270,7 +271,8 @@ class GetpaidPFGAdapter(FormActionAdapter):
         portal = zapi.getSiteManager()
         portal = getToolByName(portal,'portal_url').getPortalObject()
         adapters = self.getSchemaAdapters()
-        shopping_cart = component.getUtility(GPInterfaces.IShoppingCartUtility).get(portal, key="oneshot:bogus")
+        cartKey = "multishot:%s" % aq_parent(self).title
+        shopping_cart = component.getUtility(GPInterfaces.IShoppingCartUtility).get(portal, key=cartKey)
         
         portal_catalog = getToolByName(self, 'portal_catalog')
         #The split is because of the fields inside fieldsets that are presented as a "fieldset,field" string
@@ -319,6 +321,12 @@ class GetpaidPFGAdapter(FormActionAdapter):
         
         checkout_process = MakePaymentProcess(portal, adapters) 
         result = checkout_process(shopping_cart)
+
+        # I only want this cart to stick around for this submission of the form
+        # so destroy it to make sure it doesn't hang around
+        scu = component.getUtility(GPInterfaces.IShoppingCartUtility)
+        scu.destroy(portal, key=cartKey)
+
         if result:
             return {FORM_ERROR_MARKER:'%s' % result}
         REQUEST.response.redirect(self.getNextURL(checkout_process.order, portal))

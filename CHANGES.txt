@@ -5,6 +5,8 @@ CHANGES
 0.2.7 (unreleased)
 ------------------
 - Add contact information to default mail [larubbio]
+- Switch from oneshot cart to multishot. [larubbio]
+- Update mailer so it works with single page checkout [larubbio]
 
 0.2.6 (2009-07-07)
 ------------------

@@ -25,6 +25,8 @@ from cPickle import loads, dumps
 
 from AccessControl import ClassSecurityInfo
 
+from Acquisition import aq_parent
+
 from Products.Archetypes.public import *
 from Products.Archetypes.utils import OrderedDict
 from Products.Archetypes.utils import shasattr
@@ -100,7 +102,18 @@ class GetPaidFormMailerAdapter(FormMailerAdapter):
             formFields.append( (field.title, field.htmlValue(REQUEST)) )
 
         scu = zope.component.getUtility(IShoppingCartUtility)
-        cart = scu.get(self, create=True)
+
+        # I need to figure out which cart to get.  The default, or multishot
+        # to do that I find the first getpaid adapter (if there are multiple 
+        # then this will fail).  I then look for the attr success_callback
+        formFolder = aq_parent(self)
+        adapter = formFolder.objectValues('GetpaidPFGAdapter')[0]
+        cart = None
+        if (adapter.success_callback == '_one_page_checkout_success'):
+            cartKey = "multishot:%s" % formFolder.title
+            cart = scu.get(self, key=cartKey)
+        else:
+            cart = scu.get(self, create=True)
 
         if (cart == None):
             logger.info("Unable to get cart")
