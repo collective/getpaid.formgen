@@ -172,7 +172,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
                                          'description':u"Only digits allowed - e.g. 3334445555 and not 333-444-5555",
                                            'required':True},11],
         'email':['FormStringField',{'title':u"Email",
-                                  'description':u"Contact Information",
+                                  'description':u"",
                                     'required':True},11]
         },10],
                        'Billing Address Info':[{
@@ -201,7 +201,6 @@ class GetpaidPFGAdapter(FormActionAdapter):
                                           'description':u"Only digits allowed - e.g. 4444555566667777 and not 4444-5555-6666-7777 ",
                                           'required':True},12],
         'cc_expiration':['FormDateField',{'title':u"Credit Card Expiration Date",
-                                          'description':u"Credit Card Expiration Date",
                                           'required':True},13],
         'cc_cvc':['FormIntegerField',{'title':u"Credit Card Verfication Number",
                                       'description':u"For MC, Visa, and DC, this is a 3-digit number on back of the card.  For AmEx, this is a 4-digit code on front of card. ",
@@ -301,8 +300,8 @@ class GetpaidPFGAdapter(FormActionAdapter):
                                 item_factory.create(arg)
                             except zope.component.ComponentLookupError, e:
                                 pass
-                    elif arg < 0 :
-                        error_fields[field.getId()] = "The value for this field is not allowed"
+                        elif arg < 0 :
+                            error_fields[field.getId()] = "The value for this field is not allowed"
                 except KeyError, e:
                     pass
                 except ValueError, e:
