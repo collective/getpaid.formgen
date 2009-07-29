@@ -3,7 +3,7 @@
 
 from setuptools import setup, find_packages
 
-version = '0.2.8dev'
+version = '0.2.9dev'
 
 setup(name='getpaid.formgen',
       version=version,

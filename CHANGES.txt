@@ -2,7 +2,10 @@
 CHANGES
 =======
 
-0.2.8 (unreleased)
+0.2.9 (unreleased)
+------------------
+
+0.2.8 (2009-07-28)
 ------------------
 - Fix an indentation bug in the one page checkout success handler
 - Remove form description text that is the exact same as the field title or uneeded
