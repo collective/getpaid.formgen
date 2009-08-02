@@ -87,7 +87,8 @@ class MakePaymentProcess( object ):
             #If this is not to be a disposable cart transaction we get the cart as we should.
             #NOTICE: This has not been tested since there is no process currently that uses it
             shopping_cart = component.getUtility( interfaces.IShoppingCartUtility ).get( self.context )
-            shopping_cart = loads( dumps( shopping_cart ) )
+
+        shopping_cart = loads( dumps( shopping_cart ) )
 
         order_factory = CreateTransientOrder()
         self.order = order_factory( self.adapters, shopping_cart )

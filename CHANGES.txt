@@ -4,6 +4,7 @@ CHANGES
 
 0.2.9 (unreleased)
 ------------------
+- Fix a remote reference when used with ZODB mount points [larubbio]
 
 0.2.8 (2009-07-28)
 ------------------
