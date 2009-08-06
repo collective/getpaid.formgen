@@ -484,7 +484,7 @@ def _getValuesFromOrder(order):
     ret[ORDER_SHIPPING_TOTAL] = order.getShippingCost()
     ret[ORDER_SUB_TOTAL] = order.getSubTotalPrice()
     ret[ORDER_TOTAL] = order.getTotalPrice()
-    ret[ORDER_TRANSACTION_ID] = order.processor_order_id
+    ret[ORDER_TRANSACTION_ID] = order.user_payment_info_trans_id
     ret[CC_NAME] = order.name_on_card
     ret[CC_LAST_4] = order.user_payment_info_last4
     ret[ORDER_ITEMS_ARRAY] = []
