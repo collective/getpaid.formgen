@@ -27,7 +27,7 @@ setup(name='getpaid.formgen',
       zip_safe=False,
       install_requires=[
           'setuptools',
-          'Products.DataGridField >= 1.6rc1',
+          'Products.DataGridField >= 1.6rc1, < 1.8a1',
           'Products.PloneFormGen'
       ],
       entry_points="""
