@@ -3,7 +3,13 @@ CHANGES
 =======
 
 0.4 (unreleased)
----------------
+----------------
+
+- Don't require DataGridField <= 1.8a1; that doesn't work on Plone 4.
+  [davisagli]
+
+- Update imports for compatibility with Zope 2.12.
+  [davisagli]
 
 0.3 (2009-08-19)
 ----------------

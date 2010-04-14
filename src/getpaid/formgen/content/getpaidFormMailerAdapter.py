@@ -31,12 +31,9 @@ from Products.Archetypes.public import *
 from Products.Archetypes.utils import OrderedDict
 from Products.Archetypes.utils import shasattr
 
-from Products.ATContentTypes.content.schemata import finalizeATCTSchema
 from Products.ATContentTypes.content.base import registerATCT
 
 from Products.CMFCore.permissions import View, ModifyPortalContent
-
-from Products.Archetypes.utils import DisplayList
 
 from Products.PloneFormGen import dollarReplace
 
@@ -52,10 +49,8 @@ from email.Header import Header
 # Get Paid events
 import zope
 from getpaid.core.interfaces import workflow_states, IShoppingCartUtility, IShippableOrder, IShippingRateService, IShippableLineItem
-from zope.app.component.hooks import getSite
-from zope.app.annotation.interfaces import IAnnotations
+from zope.annotation.interfaces import IAnnotations
 
-import copy
 from Acquisition import aq_base
 
 logger = logging.getLogger("GetPaidFormMailer")
@@ -425,7 +420,6 @@ def handleOrderWorkflowTransition( order, event ):
                     data = annotation[annotationKey]
                     
                     formFields = data['formFields']
-                    attachments = data['attachments']
                     request = data['request']
                     adapter = data['adapter']
                 

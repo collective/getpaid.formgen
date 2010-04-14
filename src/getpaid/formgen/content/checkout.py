@@ -1,8 +1,8 @@
 #GetPaid imports
 from Products.PloneGetPaid.interfaces import IGetPaidManagementOptions
-from getpaid.core import interfaces, options
+from getpaid.core import interfaces
 from getpaid.core.order import Order
-from getpaid.formgen.interfaces import ICreateTransientOrder #It is a getpaid import, with a tweak
+from getpaid.formgen.interfaces import ICreateTransientOrder
 
 #Local imports
 from getpaid.formgen.interfaces import IMakePaymentProcess
@@ -11,7 +11,8 @@ from getpaid.formgen.interfaces import IMakePaymentProcess
 from zope import interface, component
 from zope.app import zapi
 from zope.event import notify
-from zope.app.event.objectevent import ObjectCreatedEvent
+
+from zope.lifecycleevent import ObjectCreatedEvent
 
 #Plone imports
 from Products.CMFCore.utils import getToolByName
