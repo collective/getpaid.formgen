@@ -57,3 +57,10 @@ except ImportError:
 else:
     HAS_PLONE30 = True
 
+try:
+    from plone.app.upgrade import v40
+except ImportError:
+    HAS_PLONE40 = False
+else:
+    HAS_PLONE40 = True
+    HAS_PLONE30 = True
