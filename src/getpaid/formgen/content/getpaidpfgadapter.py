@@ -9,7 +9,6 @@ import logging
 
 from AccessControl import ClassSecurityInfo
 from Acquisition import aq_parent
-from zope.interface import providedBy
 from zope import component
 import zope.component
 
@@ -273,13 +272,16 @@ class GetpaidPFGAdapter(FormActionAdapter):
         cartKey = "multishot:%s" % aq_parent(self).title
         shopping_cart = component.getUtility(GPInterfaces.IShoppingCartUtility).get(portal, key=cartKey)
         
-        portal_catalog = getToolByName(self, 'portal_catalog')
         #The split is because of the fields inside fieldsets that are presented as a "fieldset,field" string
         form_payable = dict((p['field_path'].split(',')[-1], p['payable_path']) for p in self.payablesMap if p['payable_path'])
         parent_node = self.getParentNode()
         has_products = 0
         error_fields = {}
         for field in fields:
+            field_item_factory = zope.component.queryMultiAdapter((shopping_cart, field),
+                getpaid.core.interfaces.ILineItemFactory)
+            if field_item_factory is not None:
+                field_item_factory.create()
             if field.getId() in form_payable:
                 try:
 
@@ -298,13 +300,13 @@ class GetpaidPFGAdapter(FormActionAdapter):
                                 item_factory = zope.component.getMultiAdapter((shopping_cart, content),
                                     getpaid.core.interfaces.ILineItemFactory)
                                 item_factory.create(arg)
-                            except zope.component.ComponentLookupError, e:
+                            except zope.component.ComponentLookupError:
                                 pass
                         elif arg < 0 :
                             error_fields[field.getId()] = "The value for this field is not allowed"
-                except KeyError, e:
+                except KeyError:
                     pass
-                except ValueError, e:
+                except ValueError:
                     error_fields[field.getId()] = "The value for this field is not allowed"
             else:
                 for adapter in adapters.values():
@@ -313,7 +315,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
                         setattr(adapter,field.getId(),REQUEST.form.get(field.fgField.getName()))
         
         if error_fields:
-            error_fields.update({FORM_ERROR_MARKER:'Some of the values where incorrect'})
+            error_fields.update({FORM_ERROR_MARKER:'Some of the values were incorrect'})
             return error_fields
         if has_products == 0:
             return {FORM_ERROR_MARKER:'There are no products in the order'}
@@ -342,7 +344,6 @@ class GetpaidPFGAdapter(FormActionAdapter):
     def _multi_item_cart_add_success(self, fields, REQUEST=None):
         scu = zope.component.getUtility(getpaid.core.interfaces.IShoppingCartUtility)
         cart = scu.get(self, create=True)
-        portal_catalog = getToolByName(self, 'portal_catalog')
         form_payable = dict((p['field_path'], p['payable_path']) for p in self.payablesMap if p['payable_path'])
         parent_node = self.getParentNode()
 
@@ -366,11 +367,11 @@ class GetpaidPFGAdapter(FormActionAdapter):
                                 item_factory = zope.component.getMultiAdapter((cart, content),
                                     getpaid.core.interfaces.ILineItemFactory)
                                 item_factory.create(arg)
-                            except zope.component.ComponentLookupError, e:
+                            except zope.component.ComponentLookupError:
                                 pass
-                except KeyError, e:
+                except KeyError:
                     pass
-                except ValueError, e:
+                except ValueError:
                     pass
 
     #--------------------------------------------------------------------------#
