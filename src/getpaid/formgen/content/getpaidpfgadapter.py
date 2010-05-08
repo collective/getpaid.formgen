@@ -351,8 +351,12 @@ class GetpaidPFGAdapter(FormActionAdapter):
         formFolder = aq_parent(self)
         formFolderPath = formFolder.getPhysicalPath()
         for field in fields:
+            field_item_factory = zope.component.queryMultiAdapter((cart, field),
+                getpaid.core.interfaces.ILineItemFactory)
+            if field_item_factory is not None:
+                field_item_factory.create()
+            
             fieldId = ",".join(field.getPhysicalPath()[len(formFolderPath):])
-
             if fieldId in form_payable:
                 try:
                     content = parent_node.unrestrictedTraverse(form_payable[fieldId], None)

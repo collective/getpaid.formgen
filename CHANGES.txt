@@ -5,6 +5,10 @@ CHANGES
 0.4 (unreleased)
 ----------------
 
+- Allow custom PloneFormGen fields to supply their own line item fields
+  by registering a (cart, field) adapter to ILineItemFactory.
+  [davisagli]
+
 - Don't require DataGridField <= 1.8a1; that doesn't work on Plone 4.
   [davisagli]
 
