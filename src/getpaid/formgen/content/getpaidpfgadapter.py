@@ -282,6 +282,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
                 getpaid.core.interfaces.ILineItemFactory)
             if field_item_factory is not None:
                 field_item_factory.create()
+                has_products += 1
             if field.getId() in form_payable:
                 try:
 
