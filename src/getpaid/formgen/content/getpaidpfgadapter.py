@@ -331,9 +331,10 @@ class GetpaidPFGAdapter(FormActionAdapter):
 
         if result:
             return {FORM_ERROR_MARKER:'%s' % result}
-        REQUEST.response.redirect(self.getNextURL(checkout_process.order, portal))
-            
-        
+        next_url = self.getNextURL(checkout_process.order, portal)
+        if next_url is not None:
+            REQUEST.response.redirect(next_url)
+
     #--------------------------------------------------------------------------#
     #Multi item cart add methods
     #--------------------------------------------------------------------------#
@@ -512,12 +513,6 @@ class GetpaidPFGAdapter(FormActionAdapter):
                      f_states.CANCELLED_BY_PROCESSOR,
                      f_states.PAYMENT_DECLINED):
             return base_url + '/@@getpaid-cancelled-declined'
-        
-        if state in (f_states.CHARGEABLE,
-                     f_states.CHARGING,
-                     f_states.REVIEWING,
-                     f_states.CHARGED):
-            return base_url + '/@@getpaid-thank-you?order_id=%s&finance_state=%s' %(order.order_id, state)
 
     def getAvailableGetPaidForms(self):
         """
