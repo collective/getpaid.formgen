@@ -201,7 +201,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
                                           'required':True},12],
         'cc_expiration':['FormDateField',{'title':u"Credit Card Expiration Date",
                                           'required':True},13],
-        'cc_cvc':['FormIntegerField',{'title':u"Credit Card Verfication Number",
+        'cc_cvc':['FormIntegerField',{'title':u"Credit Card Verification Number",
                                       'description':u"For MC, Visa, and DC, this is a 3-digit number on back of the card.  For AmEx, this is a 4-digit code on front of card. ",
                                       'fgmaxlength':4,
                                       'required':True},14],

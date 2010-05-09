@@ -4,13 +4,11 @@ from getpaid.formgen.config import PROJECTNAME
 from getpaid.formgen import HAS_PLONE30
 
 from Products.CMFCore.utils import getToolByName
-from Products.CMFCore.permissions import ManagePortal
-from Products.CMFPlone.utils import versionTupleFromString
 
 from StringIO import StringIO
 
 ALLTYPES = ('GetpaidPFGAdapter','GetPaidFormMailerAdapter',)
-DEPENDENCIES = ('PloneFormGen','PloneGetPaid',) # eventually DataGridField as well
+DEPENDENCIES = ('PloneFormGen','PloneGetPaid','DataGridField')
 
 def install(self):
     out = StringIO()
@@ -115,17 +113,6 @@ def uninstall(self):
             typesNotSearched.remove(f)
     siteProperties.manage_changeProperties(types_not_searched = typesNotSearched)
     print >> out, "Removed form adapters from types_not_searched"
-    
-    # # Remove skin directory from skin selections
-    # skinstool = getToolByName(self, 'portal_skins')
-    # for skinName in skinstool.getSkinSelections():
-    #     path = skinstool.getSkinPath(skinName)
-    #     path = [i.strip() for i in  path.split(',')]
-    #     if 'salesforcepfgadapter_images' in path:
-    #         path.remove('salesforcepfgadapter_images')
-    #         path = ','.join(path)
-    #         skinstool.addSkinSelection(skinName, path)
-    # print >> out, "Removed salesforcepfgadapter_images layer from all skin selections"
     
     print >> out, "\nSuccessfully uninstalled %s." % PROJECTNAME
     return out.getvalue()
