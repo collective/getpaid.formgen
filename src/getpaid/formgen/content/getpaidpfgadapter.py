@@ -9,7 +9,6 @@ import logging
 
 from AccessControl import ClassSecurityInfo
 from Acquisition import aq_parent
-from zope.interface import providedBy
 from zope import component
 import zope.component
 
@@ -202,7 +201,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
                                           'required':True},12],
         'cc_expiration':['FormDateField',{'title':u"Credit Card Expiration Date",
                                           'required':True},13],
-        'cc_cvc':['FormIntegerField',{'title':u"Credit Card Verfication Number",
+        'cc_cvc':['FormIntegerField',{'title':u"Credit Card Verification Number",
                                       'description':u"For MC, Visa, and DC, this is a 3-digit number on back of the card.  For AmEx, this is a 4-digit code on front of card. ",
                                       'fgmaxlength':4,
                                       'required':True},14],
@@ -273,13 +272,17 @@ class GetpaidPFGAdapter(FormActionAdapter):
         cartKey = "multishot:%s" % aq_parent(self).title
         shopping_cart = component.getUtility(GPInterfaces.IShoppingCartUtility).get(portal, key=cartKey)
         
-        portal_catalog = getToolByName(self, 'portal_catalog')
         #The split is because of the fields inside fieldsets that are presented as a "fieldset,field" string
         form_payable = dict((p['field_path'].split(',')[-1], p['payable_path']) for p in self.payablesMap if p['payable_path'])
         parent_node = self.getParentNode()
         has_products = 0
         error_fields = {}
         for field in fields:
+            field_item_factory = zope.component.queryMultiAdapter((shopping_cart, field),
+                getpaid.core.interfaces.ILineItemFactory)
+            if field_item_factory is not None:
+                field_item_factory.create()
+                has_products += 1
             if field.getId() in form_payable:
                 try:
 
@@ -298,13 +301,13 @@ class GetpaidPFGAdapter(FormActionAdapter):
                                 item_factory = zope.component.getMultiAdapter((shopping_cart, content),
                                     getpaid.core.interfaces.ILineItemFactory)
                                 item_factory.create(arg)
-                            except zope.component.ComponentLookupError, e:
+                            except zope.component.ComponentLookupError:
                                 pass
                         elif arg < 0 :
                             error_fields[field.getId()] = "The value for this field is not allowed"
-                except KeyError, e:
+                except KeyError:
                     pass
-                except ValueError, e:
+                except ValueError:
                     error_fields[field.getId()] = "The value for this field is not allowed"
             else:
                 for adapter in adapters.values():
@@ -313,7 +316,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
                         setattr(adapter,field.getId(),REQUEST.form.get(field.fgField.getName()))
         
         if error_fields:
-            error_fields.update({FORM_ERROR_MARKER:'Some of the values where incorrect'})
+            error_fields.update({FORM_ERROR_MARKER:'Some of the values were incorrect'})
             return error_fields
         if has_products == 0:
             return {FORM_ERROR_MARKER:'There are no products in the order'}
@@ -328,9 +331,10 @@ class GetpaidPFGAdapter(FormActionAdapter):
 
         if result:
             return {FORM_ERROR_MARKER:'%s' % result}
-        REQUEST.response.redirect(self.getNextURL(checkout_process.order, portal))
-            
-        
+        next_url = self.getNextURL(checkout_process.order, portal)
+        if next_url is not None:
+            REQUEST.response.redirect(next_url)
+
     #--------------------------------------------------------------------------#
     #Multi item cart add methods
     #--------------------------------------------------------------------------#
@@ -342,15 +346,18 @@ class GetpaidPFGAdapter(FormActionAdapter):
     def _multi_item_cart_add_success(self, fields, REQUEST=None):
         scu = zope.component.getUtility(getpaid.core.interfaces.IShoppingCartUtility)
         cart = scu.get(self, create=True)
-        portal_catalog = getToolByName(self, 'portal_catalog')
         form_payable = dict((p['field_path'], p['payable_path']) for p in self.payablesMap if p['payable_path'])
         parent_node = self.getParentNode()
 
         formFolder = aq_parent(self)
         formFolderPath = formFolder.getPhysicalPath()
         for field in fields:
+            field_item_factory = zope.component.queryMultiAdapter((cart, field),
+                getpaid.core.interfaces.ILineItemFactory)
+            if field_item_factory is not None:
+                field_item_factory.create()
+            
             fieldId = ",".join(field.getPhysicalPath()[len(formFolderPath):])
-
             if fieldId in form_payable:
                 try:
                     content = parent_node.unrestrictedTraverse(form_payable[fieldId], None)
@@ -366,11 +373,11 @@ class GetpaidPFGAdapter(FormActionAdapter):
                                 item_factory = zope.component.getMultiAdapter((cart, content),
                                     getpaid.core.interfaces.ILineItemFactory)
                                 item_factory.create(arg)
-                            except zope.component.ComponentLookupError, e:
+                            except zope.component.ComponentLookupError:
                                 pass
-                except KeyError, e:
+                except KeyError:
                     pass
-                except ValueError, e:
+                except ValueError:
                     pass
 
     #--------------------------------------------------------------------------#
@@ -506,12 +513,6 @@ class GetpaidPFGAdapter(FormActionAdapter):
                      f_states.CANCELLED_BY_PROCESSOR,
                      f_states.PAYMENT_DECLINED):
             return base_url + '/@@getpaid-cancelled-declined'
-        
-        if state in (f_states.CHARGEABLE,
-                     f_states.CHARGING,
-                     f_states.REVIEWING,
-                     f_states.CHARGED):
-            return base_url + '/@@getpaid-thank-you?order_id=%s&finance_state=%s' %(order.order_id, state)
 
     def getAvailableGetPaidForms(self):
         """
