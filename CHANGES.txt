@@ -2,7 +2,7 @@
 CHANGES
 =======
 
-0.4 (unreleased)
+0.4 (2010-05-19)
 ----------------
 
 - If a one-page checkout succeeds, show the form's thank you page rather
