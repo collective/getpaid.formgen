@@ -5,6 +5,8 @@ CHANGES
 0.5 (unreleased)
 ----------------
 
+- Support splitting the name field into separate first name and last name fields.
+  [davisagli]
 
 0.4 (2010-05-19)
 ----------------

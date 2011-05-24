@@ -315,6 +315,14 @@ class GetpaidPFGAdapter(FormActionAdapter):
                     if field.getId() in adapter_fields.keys():
                         setattr(adapter,field.getId(),REQUEST.form.get(field.fgField.getName()))
         
+        # support separate first/last name fields
+        if 'first_name' in REQUEST.form and 'last_name' in REQUEST.form:
+            formSchemas = component.getUtility(GPInterfaces.IFormSchemas)
+            contact_info = adapters[formSchemas.getInterface('contact_information')]
+            contact_info.first_name = REQUEST.form['first_name']
+            contact_info.last_name = REQUEST.form['last_name']
+            contact_info.name = ' '.join([contact_info.first_name, contact_info.last_name])
+        
         if error_fields:
             error_fields.update({FORM_ERROR_MARKER:'Some of the values were incorrect'})
             return error_fields
