@@ -11,6 +11,7 @@ from AccessControl import ClassSecurityInfo
 from Acquisition import aq_parent
 from zope import component
 import zope.component
+from zope.interface import Interface
 
 from AccessControl import getSecurityManager
 from Products.Archetypes import atapi
@@ -34,10 +35,20 @@ from Products.PloneFormGen.content.actionAdapter import \
 from Products.PloneFormGen.config import FORM_ERROR_MARKER
 
 from getpaid.formgen.config import PROJECTNAME
-from zope.app import zapi
 from getpaid.formgen.content.checkout import MakePaymentProcess
-from Products.PloneGetPaid.interfaces import IGetPaidManagementOptions, IVariableAmountDonatableMarker
-from Products.PloneGetPaid import sessions
+
+try:
+    from Products.PloneGetPaid.interfaces import IVariableAmountDonatableMarker
+    IVariableAmountDonatableMarker
+except ImportError:
+    class IVariableAmountDonatableMarker(Interface):
+        pass
+
+try:
+    from Products.PloneGetPaid import sessions
+    sessions
+except ImportError:
+    sessions = None
 
 logger = logging.getLogger("PloneFormGen")
 
@@ -135,10 +146,9 @@ def getAvailableCreditCards(self):
     """
     We need the vocabulary for the credit cards in a form that can be understood by pfg
     """
-    portal = zapi.getSiteManager()
-    portal = getToolByName(portal,'portal_url').getPortalObject()
-    manage_options = IGetPaidManagementOptions(portal)
-    credit_cards = manage_options.accepted_credit_cards
+    portal = component.getSiteManager()
+    enumerator = GPInterfaces.ICreditCardTypeEnumerator(portal)
+    credit_cards = enumerator.acceptedCreditCardTypes()
     available_cards = []
     for card in credit_cards:
         available_cards.append("%s|%s" % (card,card) )
@@ -266,7 +276,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
         """
         this process is quite like the regular one except it will use a disposable cart
         """
-        portal = zapi.getSiteManager()
+        portal = component.getSiteManager()
         portal = getToolByName(portal,'portal_url').getPortalObject()
         adapters = self.getSchemaAdapters()
         cartKey = "multishot:%s" % aq_parent(self).title
@@ -278,7 +288,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
         has_products = 0
         error_fields = {}
         for field in fields:
-            field_item_factory = zope.component.queryMultiAdapter((shopping_cart, field),
+            field_item_factory = component.queryMultiAdapter((shopping_cart, field),
                 getpaid.core.interfaces.ILineItemFactory)
             if field_item_factory is not None:
                 field_item_factory.create()
@@ -298,10 +308,10 @@ class GetpaidPFGAdapter(FormActionAdapter):
                         if arg > 0:
                             has_products += 1
                             try:
-                                item_factory = zope.component.getMultiAdapter((shopping_cart, content),
+                                item_factory = component.getMultiAdapter((shopping_cart, content),
                                     getpaid.core.interfaces.ILineItemFactory)
                                 item_factory.create(arg)
-                            except zope.component.ComponentLookupError:
+                            except component.ComponentLookupError:
                                 pass
                         elif arg < 0 :
                             error_fields[field.getId()] = "The value for this field is not allowed"
@@ -352,7 +362,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
 
                     
     def _multi_item_cart_add_success(self, fields, REQUEST=None):
-        scu = zope.component.getUtility(getpaid.core.interfaces.IShoppingCartUtility)
+        scu = component.getUtility(getpaid.core.interfaces.IShoppingCartUtility)
         cart = scu.get(self, create=True)
         form_payable = dict((p['field_path'], p['payable_path']) for p in self.payablesMap if p['payable_path'])
         parent_node = self.getParentNode()
@@ -360,7 +370,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
         formFolder = aq_parent(self)
         formFolderPath = formFolder.getPhysicalPath()
         for field in fields:
-            field_item_factory = zope.component.queryMultiAdapter((cart, field),
+            field_item_factory = component.queryMultiAdapter((cart, field),
                 getpaid.core.interfaces.ILineItemFactory)
             if field_item_factory is not None:
                 field_item_factory.create()
@@ -378,10 +388,10 @@ class GetpaidPFGAdapter(FormActionAdapter):
 
                         if arg > 0:
                             try:
-                                item_factory = zope.component.getMultiAdapter((cart, content),
+                                item_factory = component.getMultiAdapter((cart, content),
                                     getpaid.core.interfaces.ILineItemFactory)
                                 item_factory.create(arg)
-                            except zope.component.ComponentLookupError:
+                            except component.ComponentLookupError:
                                 pass
                 except KeyError:
                     pass
@@ -394,7 +404,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
     
     def getSchemaAdapters(self):
         adapters = {}
-        portal = zapi.getSiteManager()
+        portal = component.getSiteManager()
         portal = getToolByName(portal,'portal_url').getPortalObject()
         user = getSecurityManager().getUser()
         formSchemas = component.getUtility(GPInterfaces.IFormSchemas)
@@ -418,7 +428,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
 
         # This needs to occur after we add the item to our cart since
         # doing that sets came_from_url to the item
-        if getattr(self, 'useFormAsContinueDestination', False):
+        if sessions and getattr(self, 'useFormAsContinueDestination', False):
             sessions.set_came_from_url(aq_parent(self))
 
         return result

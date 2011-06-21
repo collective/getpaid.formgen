@@ -5,6 +5,9 @@ CHANGES
 0.5 (unreleased)
 ----------------
 
+- Remove hard dependence on Products.PloneGetPaid.
+  [davisagli]
+
 - Support splitting the name field into separate first name and last name fields.
   [davisagli]
 

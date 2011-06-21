@@ -28,8 +28,11 @@ setup(name='getpaid.formgen',
       install_requires=[
           'setuptools',
           'Products.DataGridField >= 1.6rc1',
-          'Products.PloneFormGen'
+          'Products.PloneFormGen',
       ],
+      extras_require = {
+          'test': ['Products.PloneGetPaid'],
+      },
       entry_points="""
       # -*- Entry points: -*-
       """,

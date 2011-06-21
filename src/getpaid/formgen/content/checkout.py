@@ -1,5 +1,4 @@
 #GetPaid imports
-from Products.PloneGetPaid.interfaces import IGetPaidManagementOptions
 from getpaid.core import interfaces
 from getpaid.core.order import Order
 from getpaid.formgen.interfaces import ICreateTransientOrder
@@ -9,7 +8,6 @@ from getpaid.formgen.interfaces import IMakePaymentProcess
 
 #Zope imports
 from zope import interface, component
-from zope.app import zapi
 from zope.event import notify
 
 from zope.lifecycleevent import ObjectCreatedEvent
@@ -30,7 +28,7 @@ class CreateTransientOrder( object ):
     def __call__( self, adapters, shopping_cart=None ):
         order = Order()
 
-        portal = zapi.getSiteManager()
+        portal = component.getSiteManager()
         portal = getToolByName(portal,'portal_url').getPortalObject()
         if shopping_cart is None:
             """
@@ -50,7 +48,7 @@ class CreateTransientOrder( object ):
             bag = formSchemas.getBagClass(section).frominstance(adapters[interface])
             setattr(order,section,bag)
 
-        order_manager = component.getUtility( interfaces.IOrderManager )        
+        order_manager = component.getUtility( interfaces.IOrderManager )
         order.order_id = order_manager.newOrderId()
         
         order.user_id = getSecurityManager().getUser().getId()
@@ -64,16 +62,8 @@ class MakePaymentProcess( object ):
     interface.implements(IMakePaymentProcess)
         
     def __init__( self, context, adapters ):
-        manage_options = IGetPaidManagementOptions( context )
-        processor_name = manage_options.payment_processor
-        if not processor_name:
-            raise RuntimeError( "No Payment Processor Specified" )
-        self.processor_name = processor_name
-        self.processor = component.getAdapter( context,
-                                               interfaces.IPaymentProcessor,
-                                               processor_name )
+        self.processor_name, self.processor = component.getAdapter(context, interfaces.IPaymentProcessor)
         self.adapters = adapters
-        #self.order = CreateTransientOrder()
         self.order = None
         self.context = context
         

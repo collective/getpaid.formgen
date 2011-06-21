@@ -18,7 +18,7 @@ and DataGridField installed.
 
 Install:
 --------
-There are two ways of installing getpaid.forgen, if you got it as an egg you
+There are two ways of installing getpaid.formgen, if you got it as an egg you
 just easy_install it or fetch it with your buildout or else you can copy the
 inner formgen from this folder structure to your instance's
 /lib/python/getpaid.
