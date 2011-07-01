@@ -2,7 +2,7 @@
 CHANGES
 =======
 
-0.5 (unreleased)
+0.5 (2011-06-30)
 ----------------
 
 - Remove hard dependence on Products.PloneGetPaid.
