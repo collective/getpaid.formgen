@@ -5,6 +5,10 @@ CHANGES
 0.6 (unreleased)
 ----------------
 
+- Use the field path as the key for the data grid field, rather than the
+  field title.
+  [davisagli]
+
 0.5 (2011-06-30)
 ----------------
 
