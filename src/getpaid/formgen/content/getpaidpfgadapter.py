@@ -1,4 +1,4 @@
-""" 
+"""
 Action for PloneFormGen that helps you getpaid.
 """
 
@@ -64,7 +64,7 @@ schema = FormAdapterSchema.copy() + Schema((
                        ),
                 vocabulary='getAvailableGetPaidForms'
                 ),
-                
+
     BooleanField('useFormAsContinueDestination',
         required=0,
         searchable=0,
@@ -99,7 +99,7 @@ schema = FormAdapterSchema.copy() + Schema((
              columns= {
                  "field_path" : FixedColumn("Form Fields (path)", visible=False),
                  "form_field" : FixedColumn("Form Fields"),
-                 "payable_path" : SelectColumn("Payables", 
+                 "payable_path" : SelectColumn("Payables",
                                            vocabulary="buildPayablesList")
              },
              i18n_domain = "getpaid.formgen",
@@ -113,8 +113,8 @@ schema = FormAdapterSchema.copy() + Schema((
                         i18n_domain = "getpaidpfgadapter",
                         label_msgid = "label_getpaid_button_label",
                         ))
- 
-    
+
+
 ))
 
 finalizeATCTSchema(schema, folderish=False, moveDiscussion=False)
@@ -131,7 +131,7 @@ class BillingInfo( getpaid.core.options.PropertyBag ):
         # don't store persistently
         raise RuntimeError("Storage Not Allowed")
 
-BillingInfo = BillingInfo.makeclass( getpaid.core.interfaces.IUserPaymentInformation )
+BillingInfo = BillingInfo.makeclass( GPInterfaces.IUserPaymentInformation )
 
 def order_fields(x,y):
     if x[1]>y[1]:
@@ -153,7 +153,7 @@ def getAvailableCreditCards(self):
     for card in credit_cards:
         available_cards.append("%s|%s" % (card,card) )
     return tuple(available_cards)
-    
+
 
 class GetpaidPFGAdapter(FormActionAdapter):
     """
@@ -162,9 +162,9 @@ class GetpaidPFGAdapter(FormActionAdapter):
     schema = schema
     security = ClassSecurityInfo()
 
-    fieldsetType = atapi.ATFieldProperty('GPFieldsetType')    
+    fieldsetType = atapi.ATFieldProperty('GPFieldsetType')
     makePaymentButton = atapi.ATFieldProperty('GPMakePaymentButton')
-    
+
     portal_type = 'GetpaidPFGAdapter'
     archetype_name = 'Getpaid Adapter'
     content_icon = 'getpaid.gif'
@@ -172,9 +172,9 @@ class GetpaidPFGAdapter(FormActionAdapter):
     available_templates = {'One Page Checkout': '_one_page_checkout_init',
                            'Multi item cart add': '_multi_item_cart_add_init' }
     success_callback = None
-    
+
     checkout_fields = {'User Data':[{
-                       
+
         'name':['FormStringField',{'title':u"Your Full Name",
                                    'required':True},10],
         'phone_number':['FormStringField',{'title':u"Phone Number",
@@ -216,10 +216,10 @@ class GetpaidPFGAdapter(FormActionAdapter):
                                       'fgmaxlength':4,
                                       'required':True},14],
         },30]
-        
+
                        }
 
-    
+
 
 
 
@@ -235,7 +235,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
         ordered_keys = [(afieldset,self.checkout_fields[afieldset][1]) for afieldset in self.checkout_fields.keys()]
         ordered_keys.sort(order_fields)
         ordered_keys = [ordered_key[0] for ordered_key in ordered_keys] # just lazyness to refactor the rest of the method
-        
+
         for frameset in ordered_keys:
             if frameset in oids:
                 return
@@ -246,7 +246,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
             ordered_fields.sort(order_fields)
             ordered_fields = [ordered_key[0] for ordered_key in ordered_fields]
             fs_oids = frame_folder.keys()
-            
+
             for field in ordered_fields:
                 if not field in fs_oids:
                     aField = self.checkout_fields[frameset][0][field]
@@ -261,7 +261,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
                             if callable(attribute_list[attr]):
                                 getattr(obj,"set%s" % attr.capitalize())(attribute_list[attr](self))
                             else:
-                                getattr(obj,"set%s" % attr.capitalize())(attribute_list[attr])                                
+                                getattr(obj,"set%s" % attr.capitalize())(attribute_list[attr])
                         else:
                             if callable(attribute_list[attr]):
                                 obj.getField(attr).set(obj,attribute_list[attr](self))
@@ -281,7 +281,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
         adapters = self.getSchemaAdapters()
         cartKey = "multishot:%s" % aq_parent(self).title
         shopping_cart = component.getUtility(GPInterfaces.IShoppingCartUtility).get(portal, key=cartKey)
-        
+
         #The split is because of the fields inside fieldsets that are presented as a "fieldset,field" string
         form_payable = dict((p['field_path'].split(',')[-1], p['payable_path']) for p in self.payablesMap if p['payable_path'])
         parent_node = self.getParentNode()
@@ -289,14 +289,14 @@ class GetpaidPFGAdapter(FormActionAdapter):
         error_fields = {}
         for field in fields:
             field_item_factory = component.queryMultiAdapter((shopping_cart, field),
-                getpaid.core.interfaces.ILineItemFactory)
+                GPInterfaces.ILineItemFactory)
             if field_item_factory is not None:
                 field_item_factory.create()
                 has_products += 1
             if field.getId() in form_payable:
                 try:
 
-                    content = parent_node.unrestrictedTraverse(form_payable[field.getId()], None)                        
+                    content = parent_node.unrestrictedTraverse(form_payable[field.getId()], None)
 
                     if content is not None:
 
@@ -309,7 +309,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
                             has_products += 1
                             try:
                                 item_factory = component.getMultiAdapter((shopping_cart, content),
-                                    getpaid.core.interfaces.ILineItemFactory)
+                                    GPInterfaces.ILineItemFactory)
                                 item_factory.create(arg)
                             except component.ComponentLookupError:
                                 pass
@@ -324,7 +324,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
                     adapter_fields = zope.schema.getFields(adapter.schema)
                     if field.getId() in adapter_fields.keys():
                         setattr(adapter,field.getId(),REQUEST.form.get(field.fgField.getName()))
-        
+
         # support separate first/last name fields
         if 'first_name' in REQUEST.form and 'last_name' in REQUEST.form:
             formSchemas = component.getUtility(GPInterfaces.IFormSchemas)
@@ -332,14 +332,14 @@ class GetpaidPFGAdapter(FormActionAdapter):
             contact_info.first_name = REQUEST.form['first_name']
             contact_info.last_name = REQUEST.form['last_name']
             contact_info.name = ' '.join([contact_info.first_name, contact_info.last_name])
-        
+
         if error_fields:
             error_fields.update({FORM_ERROR_MARKER:'Some of the values were incorrect'})
             return error_fields
         if has_products == 0:
             return {FORM_ERROR_MARKER:'There are no products in the order'}
-        
-        checkout_process = MakePaymentProcess(portal, adapters) 
+
+        checkout_process = MakePaymentProcess(portal, adapters)
         result = checkout_process(shopping_cart)
 
         # I only want this cart to stick around for this submission of the form
@@ -358,11 +358,11 @@ class GetpaidPFGAdapter(FormActionAdapter):
     #--------------------------------------------------------------------------#
 
     def _multi_item_cart_add_init(self):
-        self.success_callback = "_multi_item_cart_add_success"        
+        self.success_callback = "_multi_item_cart_add_success"
 
-                    
+
     def _multi_item_cart_add_success(self, fields, REQUEST=None):
-        scu = component.getUtility(getpaid.core.interfaces.IShoppingCartUtility)
+        scu = component.getUtility(GPInterfaces.IShoppingCartUtility)
         cart = scu.get(self, create=True)
         form_payable = dict((p['field_path'], p['payable_path']) for p in self.payablesMap if p['payable_path'])
         parent_node = self.getParentNode()
@@ -371,10 +371,10 @@ class GetpaidPFGAdapter(FormActionAdapter):
         formFolderPath = formFolder.getPhysicalPath()
         for field in fields:
             field_item_factory = component.queryMultiAdapter((cart, field),
-                getpaid.core.interfaces.ILineItemFactory)
+                GPInterfaces.ILineItemFactory)
             if field_item_factory is not None:
                 field_item_factory.create()
-            
+
             fieldId = ",".join(field.getPhysicalPath()[len(formFolderPath):])
             if fieldId in form_payable:
                 try:
@@ -389,7 +389,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
                         if arg > 0:
                             try:
                                 item_factory = component.getMultiAdapter((cart, content),
-                                    getpaid.core.interfaces.ILineItemFactory)
+                                    GPInterfaces.ILineItemFactory)
                                 item_factory.create(arg)
                             except component.ComponentLookupError:
                                 pass
@@ -401,7 +401,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
     #--------------------------------------------------------------------------#
     #Helper methods
     #--------------------------------------------------------------------------#
-    
+
     def getSchemaAdapters(self):
         adapters = {}
         portal = component.getSiteManager()
@@ -432,7 +432,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
             sessions.set_came_from_url(aq_parent(self))
 
         return result
-    
+
     def setGPTemplate(self, template):
         """
         This sets the template for each kind of form
@@ -461,11 +461,11 @@ class GetpaidPFGAdapter(FormActionAdapter):
                     widget = self[local_widget_name[0]][local_widget_name[1]]
                 else:
                     widget = self[local_widget_name[0]]
-                    
+
                 parent_node = self.getParentNode()
                 content = parent_node.restrictedTraverse(fields['payable_path'], None)
-                
-                payable = GPInterfaces.IPayable(content)    
+
+                payable = GPInterfaces.IPayable(content)
                 if payable.price:
                     title = content.title + " : $%0.2f" % (payable.price)
                 else:
@@ -474,19 +474,19 @@ class GetpaidPFGAdapter(FormActionAdapter):
 
                 widget.setTitle(title)
                 widget.setDescription(description)
-                
-        
+
+
     security.declareProtected(ModifyPortalContent, 'generateFormFieldRows')
     def generateFormFieldRows(self):
         """This method returns a list of rows for the field mapping
            ui. One row is returned for each field in the form folder.
         """
         fixedRows = []
-        
+
         for formFieldTitle, formFieldPath in self._getIPloneFormGenFieldsPathTitlePair():
             logger.debug("creating mapper row for %s" % formFieldTitle)
             fixedRows.append(FixedRow(keyColumn="field_path",
-                                      initialData={"form_field" : formFieldTitle, 
+                                      initialData={"form_field" : formFieldTitle,
                                                    "field_path" : formFieldPath,
                                                    "sf_field" : ""}))
         return fixedRows
@@ -495,13 +495,13 @@ class GetpaidPFGAdapter(FormActionAdapter):
         formFolder = aq_parent(self)
         formFolderPath = formFolder.getPhysicalPath()
         formFieldTitles = []
-        
+
         for formField in formFolder.objectIds():
             fieldObj = getattr(formFolder, formField)
             if IPloneFormGenField.providedBy(fieldObj):
                 formFieldTitles.append((fieldObj.Title().strip(),
                                         ",".join(fieldObj.getPhysicalPath()[len(formFolderPath):])))
-        
+
             # can we also inspect further down the chain
             if fieldObj.isPrincipiaFolderish:
                 # since nested folders only go 1 level deep
@@ -513,7 +513,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
                         formFieldTitles.append(("%s --> %s" % (fieldObj.Title().strip(),
                                                                subFieldObj.Title().strip()),
                                                 ",".join(subFieldObj.getPhysicalPath()[len(formFolderPath):])))
-        
+
         return formFieldTitles
 
     def getNextURL(self, order, context):
@@ -537,7 +537,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
         We will provide a 'vocabulary' with the predefined form templates available
         It is not possible for the moment to do any kind of form without restriction
         """
-        
+
         available_template_list = DisplayList()
         for field in self.available_templates.keys():
             available_template_list.add( field, field )
@@ -565,6 +565,6 @@ class GetpaidPFGAdapter(FormActionAdapter):
         display = DisplayList(stuff)
         return display
 
-    
+
 atapi.registerType(GetpaidPFGAdapter, PROJECTNAME)
 
