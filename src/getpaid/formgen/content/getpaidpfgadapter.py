@@ -287,6 +287,7 @@ class GetpaidPFGAdapter(FormActionAdapter):
         parent_node = self.getParentNode()
         has_products = 0
         error_fields = {}
+        custom_data = {}
         for field in fields:
             field_item_factory = component.queryMultiAdapter((shopping_cart, field),
                 GPInterfaces.ILineItemFactory)
@@ -324,6 +325,18 @@ class GetpaidPFGAdapter(FormActionAdapter):
                     adapter_fields = zope.schema.getFields(adapter.schema)
                     if field.getId() in adapter_fields.keys():
                         setattr(adapter,field.getId(),REQUEST.form.get(field.fgField.getName()))
+
+                # Set up custom data map. This is stored on the cart and can be used for arbitrary purposes.
+                custom_fieldset = getattr(field, 'getpaid_formgen_fieldset', None)
+                custom_field = getattr(field, 'getpaid_formgen_field', None)
+                if custom_fieldset is not None and custom_field is not None:
+                    if custom_fieldset not in custom_data:
+                        custom_data[custom_fieldset] = {}
+                    custom_data[custom_fieldset][custom_field] = REQUEST.form.get(field.fgField.getName())
+
+        # record custom data
+        if custom_data:
+            shopping_cart.getpaid_formgen_data = custom_data
 
         # support separate first/last name fields
         if 'first_name' in REQUEST.form and 'last_name' in REQUEST.form:

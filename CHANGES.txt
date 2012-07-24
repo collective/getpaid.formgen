@@ -5,6 +5,11 @@ CHANGES
 0.6 (unreleased)
 ----------------
 
+- Add a mechanism for recording form fields in a dictionary on the shopping
+  cart. If a form field has getpaid_formgen_fieldset and getpaid_formgen_field
+  attributes, it will get recorded in cart.getpaid_formgen_data[fieldset][field]
+  [davisagli]
+
 - Use the field path as the key for the data grid field, rather than the
   field title.
   [davisagli]
