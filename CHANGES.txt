@@ -2,7 +2,7 @@
 CHANGES
 =======
 
-0.6 (unreleased)
+0.6 (2012-07-24)
 ----------------
 
 - Add a mechanism for recording form fields in a dictionary on the shopping
