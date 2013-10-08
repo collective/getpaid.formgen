@@ -28,7 +28,7 @@
   <subscriber
      handler=".content.getpaidFormMailerAdapter.handleOrderWorkflowTransition"
      for="getpaid.core.interfaces.IOrder
-          hurry.workflow.interfaces.IWorkflowTransitionEvent"
+          getpaid.hurry.workflow.interfaces.IWorkflowTransitionEvent"
      />
 
 </configure>
